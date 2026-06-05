@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react'
 import AddHostModal from './AddHostModal'
 import { useInputModal } from './InputModal'
+import './Sidebar.css'
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
@@ -85,7 +86,9 @@ export default React.memo(function Sidebar({
   const { inputModal, askInput } = useInputModal()
   const [groupCtx, setGroupCtx] = useState(null) // { x, y, node }
 
-  const [ctx, setCtx]         = useState(null)   // { x, y, host }
+  const [ctx, setCtx]         = useState(null)
+  const deferredSearch = useDeferredValue(search)
+  const normalizedSearch = useMemo(() => deferredSearch.trim().toLowerCase(), [deferredSearch])   // { x, y, host }
   const [editNote, setEditNote]   = useState(null)
   const [noteText, setNoteText]   = useState('')
 
@@ -268,30 +271,12 @@ export default React.memo(function Sidebar({
           </svg>
           <span style={{ fontWeight: 600, color: 'var(--text0)', fontSize: 13 }}>ASM</span>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>{hosts.length}</span>
-          <button
-            onClick={onAddHost}
-            title="Добавить хост"
-            style={{ fontSize: 16, color: 'var(--text3)', padding: '0 2px', marginLeft: 6 }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
-          >+</button>
+          <button className="sb-header-btn" onClick={onAddHost} title="Добавить хост" style={{ fontSize: 16, marginLeft: 6 }}>+</button>
           {onExportImport && (
-            <button
-              onClick={onExportImport}
-              title="Экспорт / Импорт хостов"
-              style={{ fontSize: 11, color: 'var(--text3)', padding: '0 2px' }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
-            >📦</button>
+            <button className="sb-header-btn" onClick={onExportImport} title="Экспорт / Импорт хостов" style={{ fontSize: 11 }}>📦</button>
           )}
           {onHide && (
-            <button
-              onClick={onHide}
-              title="Свернуть панель"
-              style={{ fontSize: 12, color: 'var(--text3)', padding: '0 2px' }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
-            >◀</button>
+            <button className="sb-header-btn" onClick={onHide} title="Свернуть панель">◀</button>
           )}
         </div>
         <div style={{ position: 'relative' }}>
@@ -551,17 +536,20 @@ function GroupHeader({ label, count, collapsed, onToggle, muted, onCtxMenu }) {
 }
 
 function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, onOpen, onCtx, compact = false }) {
-  const [hov, setHov] = useState(false)
+  // ✅ НЕ используем hov state — это было причиной React ре-рендера на каждый hover!
+  // Вместо этого CSS :hover управляет фоном, а ping триггерится через ref.
   const [ping, setPing] = useState(null)
+  const pingFetchedRef = useRef(false)
   const pl = (compact ? 8 : 12) + depth * (compact ? 8 : 12)
 
-  useEffect(() => {
-    if (!hov) return
-    if (ping !== null) return
+  // Ping триггерится один раз при первом наведении — без setState!
+  const handleMouseEnter = useCallback(() => {
+    if (pingFetchedRef.current || ping !== null) return
     const hostname = host.hostname || host.host
     if (!hostname || hostname === 'localhost') return
+    pingFetchedRef.current = true
     window.api.host.ping(hostname, host.port || 22).then(setPing)
-  }, [hov])
+  }, [host, ping])
 
   const pingColor = ping == null ? 'transparent'
     : !ping.ok ? '#ef4444'
@@ -579,28 +567,19 @@ function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, on
     : null
 
   if (compact) {
-    // ── Компактный режим: убираем строку адреса, чуть меньше отступы ──
     return (
       <div
-        onMouseEnter={() => setHov(true)}
-        onMouseLeave={() => setHov(false)}
+        className="host-row compact"
+        style={{ paddingLeft: pl }}
+        onMouseEnter={handleMouseEnter}
         onDoubleClick={() => onOpen(host, 'terminal')}
         onContextMenu={(e) => onCtx(e, host, groupId)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          paddingLeft: pl, paddingRight: 10, paddingTop: 2, paddingBottom: 2,
-          cursor: 'pointer',
-          background: hov ? 'var(--bg2)' : 'transparent',
-          transition: 'background .1s',
-        }}
       >
         <div style={{
           width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-          background: color + '18',
-          border: `1px solid ${color}35`,
+          background: color + '18', border: `1px solid ${color}35`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 9, fontWeight: 600, color,
-          fontFamily: 'var(--font-mono)',
+          fontSize: 9, fontWeight: 600, color, fontFamily: 'var(--font-mono)',
         }}>
           {host.host.slice(0, 2).toUpperCase()}
         </div>
@@ -613,39 +592,28 @@ function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, on
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
           {tunnelEnabled && <span title="Проброс портов" style={{ fontSize: 9 }}>🔌</span>}
           {note && <span title={note} style={{ color: 'var(--amber)', fontSize: 9 }}>●</span>}
-          {hov && ping && (
-            <span title={pingTitle} style={{
-              width: 5, height: 5, borderRadius: '50%', display: 'inline-block',
-              background: pingColor, flexShrink: 0,
-            }} />
+          {/* ✅ Ping dot: скрыт по умолчанию, показывается через CSS :hover */}
+          {ping && (
+            <span title={pingTitle} className="ping-dot" style={{ background: pingColor, boxShadow: `0 0 4px ${pingColor}` }} />
           )}
         </div>
       </div>
     )
   }
 
-  // ── Обычный режим ──
   return (
     <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      className="host-row"
+      style={{ paddingLeft: pl }}
+      onMouseEnter={handleMouseEnter}
       onDoubleClick={() => onOpen(host, 'terminal')}
       onContextMenu={(e) => onCtx(e, host, groupId)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 9,
-        paddingLeft: pl, paddingRight: 10, paddingTop: 4, paddingBottom: 4,
-        cursor: 'pointer',
-        background: hov ? 'var(--bg2)' : 'transparent',
-        transition: 'background .1s',
-      }}
     >
       <div style={{
         width: 26, height: 26, borderRadius: 5, flexShrink: 0,
-        background: color + '18',
-        border: `1px solid ${color}35`,
+        background: color + '18', border: `1px solid ${color}35`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 600, color,
-        fontFamily: 'var(--font-mono)',
+        fontSize: 10, fontWeight: 600, color, fontFamily: 'var(--font-mono)',
       }}>
         {host.host.slice(0, 2).toUpperCase()}
       </div>
@@ -660,12 +628,9 @@ function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, on
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         {tunnelEnabled && <span title="Проброс портов включён" style={{ fontSize: 10 }}>🔌</span>}
         {note && <span title={note} style={{ color: 'var(--amber)', fontSize: 11 }}>●</span>}
-        {hov && ping && (
-          <span title={pingTitle} style={{
-            width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
-            background: pingColor, flexShrink: 0,
-            boxShadow: `0 0 4px ${pingColor}`,
-          }} />
+        {/* ✅ Ping dot: CSS управляет видимостью через .host-row:hover .ping-dot */}
+        {ping && (
+          <span title={pingTitle} className="ping-dot" style={{ background: pingColor, boxShadow: `0 0 4px ${pingColor}` }} />
         )}
       </div>
     </div>
@@ -762,31 +727,28 @@ function ContextMenu({ x, y, host, groupId, customGroups, tunnelEnabled, isFavor
 
       {/* Цвет метки */}
       <div
-        style={{ padding: '6px 14px', cursor: 'pointer', fontSize: 12, color: 'var(--text0)', display: 'flex', alignItems: 'center', gap: 8 }}
+        className="ctx-action"
+        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         onClick={() => setShowColorPicker((v) => !v)}
-        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
-        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
       >
         <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: hostColor, border: '1px solid rgba(0,0,0,0.15)', flexShrink: 0 }} />
         🎨  Цвет метки
         <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text3)' }}>{showColorPicker ? '▲' : '▼'}</span>
       </div>
-      {showColorPicker && (
-        <div style={{ padding: '6px 14px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {COLOR_PALETTE.map((c) => (
-            <div key={c} onClick={() => onSetColor(c)} title={c}
-              style={{ width: 18, height: 18, borderRadius: 4, background: c, cursor: 'pointer', border: c === hostColor ? '2px solid var(--text0)' : '2px solid transparent', transition: 'transform .1s' }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.25)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            />
-          ))}
-          <div onClick={() => onSetColor(null)} title="Авто (сбросить)"
-            style={{ width: 18, height: 18, borderRadius: 4, cursor: 'pointer', border: '2px solid var(--border2)', background: 'linear-gradient(135deg, #ccc 50%, #fff 50%)', transition: 'transform .1s' }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.25)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          />
-        </div>
-      )}
+          {showColorPicker && (
+            <div style={{ padding: '6px 14px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {COLOR_PALETTE.map((c) => (
+                <div key={c} onClick={() => onSetColor(c)} title={c}
+                  className="color-dot"
+                  style={{ width: 18, height: 18, borderRadius: 4, background: c, border: c === hostColor ? '2px solid var(--text0)' : '2px solid transparent' }}
+                />
+              ))}
+              <div onClick={() => onSetColor(null)} title="Авто (сбросить)"
+                className="color-dot"
+                style={{ width: 18, height: 18, borderRadius: 4, border: '2px solid var(--border2)', background: 'linear-gradient(135deg, #ccc 50%, #fff 50%)' }}
+              />
+            </div>
+          )}
 
       <CtxAction onClick={onEditNote}>📝  Заметка</CtxAction>
 
@@ -842,20 +804,10 @@ function GroupTree({ nodes, onSelect, depth }) {
         return (
           <React.Fragment key={node.id}>
             <div
-              style={{
-                display: 'flex', alignItems: 'center',
-                padding: `5px 14px 5px ${pl}px`,
-                cursor: 'pointer', fontSize: 12, color: 'var(--text0)',
-                position: 'relative',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg2)'
-                handleNodeHover(node.id, hasChildren)
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                handleNodeLeave(node.id)
-              }}
+              className="group-tree-item"
+              style={{ padding: `5px 14px 5px ${pl}px` }}
+              onMouseEnter={() => handleNodeHover(node.id, hasChildren)}
+              onMouseLeave={() => handleNodeLeave(node.id)}
               onClick={(e) => {
                 e.stopPropagation()
                 if (hasChildren) {
@@ -945,9 +897,7 @@ function CtxAction({ children, onClick, danger, indent }) {
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onClick() }}
-      style={{ padding: `6px ${indent ? 22 : 14}px`, cursor: 'pointer', fontSize: 12, color: danger ? 'var(--red)' : 'var(--text0)' }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      className={`ctx-action${danger ? ' danger' : ''}${indent ? ' indent' : ''}`}
     >{children}</div>
   )
 }
@@ -1046,9 +996,7 @@ function GItem({ children, onClick, danger }) {
   return (
     <div
       onClick={onClick}
-      style={{ padding: '7px 14px', fontSize: 12, cursor: 'pointer', color: danger ? 'var(--red)' : 'var(--text0)' }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      className={`g-item${danger ? ' danger' : ''}`}
     >{children}</div>
   )
 }

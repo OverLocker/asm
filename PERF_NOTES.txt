@@ -1,0 +1,4 @@
+Round 6:
+- Memoized heavy pane components where possible.
+- Goal: reduce cascading rerenders from App.jsx state updates.
+- Next major gain requires App state decomposition and Sidebar virtualization.

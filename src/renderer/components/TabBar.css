@@ -1,0 +1,148 @@
+/* ───────────────────────────────────────────────────────
+   TabBar.css — hover через CSS, без JS reflow'ов
+   ─────────────────────────────────────────────────────── */
+
+.tb-root {
+  display: flex;
+  align-items: center;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 30px;
+  min-width: 0;
+  contain: layout style;
+}
+
+/* Общий стиль для кнопок в tabbar */
+.tb-btn {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--text3);
+  transition: color 0.1s, background 0.1s;
+  cursor: pointer;
+}
+
+.tb-btn:hover {
+  color: var(--accent);
+  background: var(--bg2);
+}
+
+.tb-home  { padding: 0 9px;  border-right: 1px solid var(--border); font-size: 13px; }
+.tb-plus  { padding: 0 10px; border-left:  1px solid var(--border); font-size: 16px; }
+.tb-sftp  { padding: 0 8px;  border-left:  1px solid var(--border); font-size: 13px; }
+.tb-settings { padding: 0 9px; border-left: 1px solid var(--border); }
+
+/* Туннели — цвет зависит от состояния, фон только на ховер */
+.tb-tunnels {
+  padding: 0 9px;
+  border-left: 1px solid var(--border);
+  font-size: 12px;
+  gap: 3px;
+  transition: background 0.1s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+}
+
+.tb-tunnels:hover { background: var(--bg2); }
+
+/* X11 — цвет управляется пропом, меняем только фон на hover */
+.tb-x11 {
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  gap: 2px;
+  font-family: var(--font-mono);
+  transition: background 0.1s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+}
+
+.tb-x11:hover { background: var(--bg2); }
+
+/* Скролл-стрелки */
+.tb-arrow {
+  height: 100%;
+  padding: 0 6px;
+  flex-shrink: 0;
+  color: var(--text2);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tb-arrow-left  { background: linear-gradient(to right, var(--bg1), transparent); border-right: 1px solid var(--border); }
+.tb-arrow-right { background: linear-gradient(to left,  var(--bg1), transparent); border-left:  1px solid var(--border); }
+
+/* Контейнер вкладок */
+.tb-tabs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  overflow-x: auto;
+  height: 100%;
+  scrollbar-width: none;
+}
+
+/* Одна вкладка */
+.tb-tab {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  position: relative;
+  user-select: none;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.tb-tab:not(.tb-tab-active):hover { background: var(--bg2); }
+
+/* Кнопка закрытия вкладки */
+.tb-close {
+  color: var(--text3);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+  margin-left: 2px;
+  transition: color 0.1s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tb-close:hover { color: var(--red); }
+
+/* Акцентная полоска активной вкладки */
+.tb-tab-accent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+/* Контекстное меню вкладки */
+.tb-ctx-action {
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text0);
+  transition: background 0.1s;
+}
+
+.tb-ctx-action:hover { background: var(--bg2); }
+
+@keyframes tabPulse {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}

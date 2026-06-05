@@ -1,0 +1,106 @@
+/* ───────────────────────────────────────────────────────
+   Sidebar.css — hover через CSS, без JS reflow'ов
+   ─────────────────────────────────────────────────────── */
+
+/* ─── Кнопки заголовка сайдбара ─────────────────────── */
+
+.sb-header-btn {
+  color: var(--text3);
+  padding: 0 2px;
+  transition: color 0.1s;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.sb-header-btn:hover { color: var(--accent); }
+
+/* ─── Строка хоста ───────────────────────────────────── */
+
+.host-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-right: 10px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.1s;
+  contain: layout style;
+}
+
+.host-row:hover { background: var(--bg2); }
+
+.host-row.compact {
+  gap: 8px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* Точка ping — скрыта, показывается на hover через CSS */
+.ping-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: none;
+}
+
+.host-row.compact .ping-dot {
+  width: 5px;
+  height: 5px;
+}
+
+/* Показываем точку только когда мышь над строкой */
+.host-row:hover .ping-dot { display: inline-block; }
+
+/* ─── Элементы контекстного меню ────────────────────── */
+
+.ctx-action {
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text0);
+  transition: background 0.1s;
+}
+
+.ctx-action:hover { background: var(--bg2); }
+
+.ctx-action.indent { padding-left: 22px; }
+.ctx-action.danger { color: var(--red); }
+
+/* ─── GroupTree (вложенные группы в контекст-меню) ─── */
+
+.group-tree-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text0);
+  position: relative;
+  transition: background 0.1s;
+}
+
+.group-tree-item:hover { background: var(--bg2); }
+
+/* ─── Цветовые кружки в контекст-меню ──────────────── */
+
+.color-dot {
+  transition: transform 0.1s;
+  cursor: pointer;
+}
+
+.color-dot:hover { transform: scale(1.25); }
+
+/* ─── Пункты группового контекстного меню ──────────── */
+
+.g-item {
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text0);
+  transition: background 0.1s;
+}
+
+.g-item:hover { background: var(--bg2); }
+.g-item.danger { color: var(--red); }

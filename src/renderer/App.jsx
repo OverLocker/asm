@@ -1,5 +1,5 @@
 // patch3: editor preference placeholder
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Sidebar            from './components/Sidebar'
 import MiniSftp           from './components/MiniSftp'
 import TabBar             from './components/TabBar'
@@ -451,7 +451,10 @@ export default function App() {
   const onExportImportCb = useCallback(() => setShowExportImport(true), [])
   const onHideSidebarCb  = useCallback(() => setSidebarHidden(true), [])
 
-  return (
+  
+  const activeTabData = useMemo(() => tabs.find(t => t.id === activeTab) || null, [tabs, activeTab])
+
+return (
     <div style={{ display: 'flex', height: '100vh', minHeight: 0, overflow: 'hidden', background: 'var(--bg0)' }}>
 
       {/* Боковая панель — скрывается в fullscreen или sidebarHidden */}
@@ -556,7 +559,7 @@ export default function App() {
               historyLimit={termSettings.historyLimit ?? 5}
             />
           )}
-          {tabs.map((tab) => (
+          {activeTabData && (() => { const tab = activeTabData; return (
             <div key={tab.id} style={{ display: tab.id === activeTab ? 'flex' : 'none', height: '100%', minHeight: 0, flexDirection: 'column' }}>
               <TabErrorBoundary key={tab.id}>
               {tab.type === 'terminal' && (
@@ -596,7 +599,7 @@ export default function App() {
               )}
               </TabErrorBoundary>
             </div>
-          ))}
+           )})() }
         </div>
       </div>
 

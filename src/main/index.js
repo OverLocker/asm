@@ -841,6 +841,17 @@ ipcMain.handle('sftp:upload-dir', async (event, { id, localDir, remoteDir }) => 
 
 // ─── Tunnels ─────────────────────────────────────────────────────────────────
 
+
+const pendingWrites = new Map()
+function scheduleJsonWrite(file, data) {
+  clearTimeout(pendingWrites.get(file))
+  const t = setTimeout(() => {
+    fs.promises.writeFile(file, JSON.stringify(data, null, 2))
+      .catch(err => console.error('write failed', file, err))
+  }, 250)
+  pendingWrites.set(file, t)
+}
+
 const tunnels = new Map()
 
 ipcMain.handle('tunnel:start', async (event, { id, host, user, port, identityFile, localPort, remoteHost, remotePort, direction }) => {
@@ -1028,7 +1039,7 @@ ipcMain.handle('notes:load', () => {
 })
 
 ipcMain.handle('notes:save', (event, notes) => {
-  fs.writeFileSync(notesFile, JSON.stringify(notes, null, 2))
+  scheduleJsonWrite(notesFile, notes)
   return { ok: true }
 })
 
@@ -1041,7 +1052,7 @@ ipcMain.handle('groups:load', () => {
 })
 
 ipcMain.handle('groups:save', (event, groups) => {
-  fs.writeFileSync(groupsFile, JSON.stringify(groups, null, 2))
+  scheduleJsonWrite(groupsFile, groups)
   return { ok: true }
 })
 
@@ -1054,7 +1065,7 @@ ipcMain.handle('settings:load', () => {
 })
 
 ipcMain.handle('settings:save', (event, settings) => {
-  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2))
+  scheduleJsonWrite(settingsFile, settings)
   return { ok: true }
 })
 
@@ -1074,7 +1085,7 @@ function loadSessions() {
   try { return JSON.parse(fs.readFileSync(sessionsFile, 'utf8')) } catch { return [] }
 }
 function saveSessions(sessions) {
-  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2))
+  scheduleJsonWrite(sessionsFile, sessions)
 }
 
 ipcMain.handle('sessions:load', () => loadSessions())
@@ -1377,7 +1388,7 @@ ipcMain.handle('history:load', () => {
 })
 
 ipcMain.handle('history:save', (event, history) => {
-  fs.writeFileSync(historyFile, JSON.stringify(history, null, 2))
+  scheduleJsonWrite(historyFile, history)
   return { ok: true }
 })
 // ─── Tunnel Rules ─────────────────────────────────────────────────────────────
@@ -1389,7 +1400,7 @@ ipcMain.handle('tunnelRules:load', () => {
 })
 
 ipcMain.handle('tunnelRules:save', (event, rules) => {
-  fs.writeFileSync(tunnelRulesFile, JSON.stringify(rules, null, 2))
+  scheduleJsonWrite(tunnelRulesFile, rules)
   return { ok: true }
 })
 

@@ -521,8 +521,7 @@ const SftpPanel = forwardRef(function SftpPanel({
   )
 })
 
-export default SftpPanel
-
+export default React.memo(SftpPanel)
 // ─── Вспомогательные компоненты ───────────────────────────────────────────────
 
 function panelStyleFn(active) {
