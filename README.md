@@ -1,3 +1,6 @@
+<img width="2552" height="1361" alt="image" src="https://github.com/user-attachments/assets/4607ae7a-b0ea-46bd-b62c-30ded31561c2" />
+
+
 # ASM — Absolute Session Manager
 
 Десктопный менеджер SSH-сессий для Linux. Electron + React.
