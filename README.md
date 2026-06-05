@@ -97,7 +97,7 @@
 
 ## Требования
 
-- **Linux** (тестировалось на Ubuntu 22.04+, Debian 12+)
+- **Linux** (тестировалось на Arch Linux)
 - **Node.js** 18+ и npm
 - **Python 3** (нужен для сборки `node-pty`)
 - `build-essential`, `libsecret-1-dev` (для нативных модулей)
