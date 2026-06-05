@@ -1,0 +1,78 @@
+:root {
+  /* Светлая тема UI */
+  --bg0: #f5f6f8;        /* фон страницы */
+  --bg1: #ffffff;        /* сайдбар, панели */
+  --bg2: #f0f1f4;        /* вторичные поверхности, инпуты */
+  --bg3: #e4e6ec;        /* hover, выделение */
+  --bg4: #d8dae3;        /* активные элементы */
+
+  --accent:  #2563eb;    /* синий */
+  --accent2: #7c3aed;    /* фиолетовый */
+  --green:   #16a34a;
+  --amber:   #d97706;
+  --red:     #dc2626;
+
+  --text0: #111827;      /* основной текст */
+  --text1: #374151;      /* вторичный */
+  --text2: #6b7280;      /* приглушённый */
+  --text3: #9ca3af;      /* хинты */
+
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-ui:   'Inter', sans-serif;
+  --r:  6px;
+  --r2: 10px;
+
+  /* Тема терминала — переопределяется в настройках */
+  --term-bg:      #1e1e2e;
+  --term-bg-alpha: 1;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg0);
+  color: var(--text0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+button {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, textarea, select {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  color: var(--text0);
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.xterm { height: 100%; }
+.xterm-viewport { overflow-y: auto !important; }
