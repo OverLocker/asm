@@ -82,7 +82,7 @@ function Metric({ icon, label, value, color, bar, barPct, barColor, title }) {
 }
 
 // ─── Главный компонент ─────────────────────────────────────────────────────────
-export default function HostMonitorBar({ tabId, host }) {
+function HostMonitorBar({ tabId, host }) {
   const [stats, setStats]       = useState(null)
   const [status, setStatus]     = useState('connecting') // connecting | ok | error
   const [error, setError]       = useState('')
@@ -235,3 +235,5 @@ const barStyle = {
   overflow: 'hidden',
   contain: 'layout style',
 }
+
+export default React.memo(HostMonitorBar)

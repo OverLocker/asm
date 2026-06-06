@@ -67,7 +67,7 @@ function Key({ label }) {
   )
 }
 
-export default function HotkeyHelp({ onClose }) {
+function HotkeyHelp({ onClose }) {
   return (
     <div
       style={{
@@ -158,3 +158,5 @@ export default function HotkeyHelp({ onClose }) {
     </div>
   )
 }
+
+export default React.memo(HotkeyHelp)

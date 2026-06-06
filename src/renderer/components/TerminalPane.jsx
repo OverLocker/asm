@@ -120,15 +120,33 @@ export default function TerminalPane({ tab, termSettings, onUpdate, onReconnect,
     containerRef.current.addEventListener('keydown', onKeyDown)
 
     const id = tab.id
-    const { hostname, host, user, port, identityFile, proxyJump } = tab.host
-    const isLocal = hostname === 'localhost' && host === 'local'
+    const { hostname, host, user, port, identityFile, proxyJump, type: hostType } = tab.host
+    const isLocal  = hostname === 'localhost' && host === 'local'
+    const isSerial = hostType === 'serial'
     onUpdate({ status: 'connecting' })
     setLocalStatus('connecting')
 
-    window.api.pty.spawn({ id, host: hostname, user, port, identityFile, proxyJump, isLocal })
+    const spawnOpts = isSerial
+      ? {
+          id,
+          isSerial:   true,
+          serialPort: tab.host.serialPort || hostname,
+          baudRate:   tab.host.baudRate   || 115200,
+          dataBits:   tab.host.dataBits   || 8,
+          parity:     tab.host.parity     || 'none',
+          stopBits:   tab.host.stopBits   || 1,
+          serialProg: tab.host.serialProg || 'picocom',
+        }
+      : { id, host: hostname, user, port, identityFile, proxyJump, isLocal }
+
+    const spawnTitle = isSerial
+      ? `${tab.host.serialPort || hostname} @ ${tab.host.baudRate || 115200}`
+      : isLocal ? 'localhost' : `${user ? user + '@' : ''}${host}`
+
+    window.api.pty.spawn(spawnOpts)
       .then(() => {
         setLocalStatus('connected')
-        onUpdate({ status: 'connected', title: isLocal ? 'localhost' : `${user ? user + '@' : ''}${host}` })
+        onUpdate({ status: 'connected', title: spawnTitle })
       })
       .catch(() => {
         setLocalStatus('error')
@@ -266,8 +284,7 @@ export default function TerminalPane({ tab, termSettings, onUpdate, onReconnect,
               boxShadow: '0 2px 12px rgba(37,99,235,0.35)',
               transition: 'opacity 0.2s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+            className="hov-dim"
           >
             {connectTimedOut && localStatus === 'connecting' ? '⏱ Долгое подключение — переподключиться?' : '↺ Подключиться заново'}
           </button>
@@ -308,8 +325,7 @@ export default function TerminalPane({ tab, termSettings, onUpdate, onReconnect,
             style={{ fontSize: 13, color: 'var(--text2)', padding: '2px 6px', borderRadius: 4, background: 'var(--bg2)', border: '1px solid var(--border2)' }}>↓</button>
           <button onClick={() => setSearchOpen(false)} title="Закрыть (Esc)"
             style={{ fontSize: 15, color: 'var(--text3)', padding: '0 4px', marginLeft: 2 }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--red)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+            className="hov-red"
           >×</button>
         </div>
       )}

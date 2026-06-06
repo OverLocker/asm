@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles/global.css'
+import './styles/utils.css'
 import { applyUITheme, DEFAULT_SETTINGS } from './termSettings'
 
 // Применяем тему синхронно до первого рендера — убирает белый флеш

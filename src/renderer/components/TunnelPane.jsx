@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-export default function TunnelPane({ tab, onUpdate }) {
+function TunnelPane({ tab, onUpdate }) {
   const [tunnels, setTunnels] = useState([]) // active tunnels for this host
   const [form, setForm] = useState({
     direction: 'local',
@@ -140,3 +140,5 @@ export default function TunnelPane({ tab, onUpdate }) {
 function Label({ children }) {
   return <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 5, fontWeight: 500 }}>{children}</div>
 }
+
+export default React.memo(TunnelPane)

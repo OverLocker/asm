@@ -451,8 +451,7 @@ function BroadcastBar({ count, onSend, onSendRaw, host }) {
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '5px 10px 5px 14px', cursor: 'pointer',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  className="hov-bg"
                 >
                   <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text0)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {cmd}
@@ -461,8 +460,7 @@ function BroadcastBar({ count, onSend, onSendRaw, host }) {
                     onClick={(e) => deleteHistory(cmd, e)}
                     title="Удалить"
                     style={{ flexShrink: 0, fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
+                    className="hov-red"
                   >✕</button>
                 </div>
               ))}
@@ -474,8 +472,7 @@ function BroadcastBar({ count, onSend, onSendRaw, host }) {
                 <button
                   onClick={clearHistory}
                   style={{ fontSize: 10, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
+                  className="hov-red"
                 >Очистить всё</button>
               </div>
             )}
@@ -505,8 +502,7 @@ function BroadcastBar({ count, onSend, onSendRaw, host }) {
             border: '1px solid var(--border2)', cursor: 'pointer',
             fontFamily: 'var(--font-mono)',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg3)'; e.currentTarget.style.color = 'var(--text0)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg2)'; e.currentTarget.style.color = 'var(--text2)' }}
+          className="hov-bg-text0"
         >{label}</button>
       ))}
     </div>
@@ -711,8 +707,7 @@ const SplitPane = forwardRef(function SplitPane({ tab, termSettings, splitBorder
                     cursor: 'pointer', fontSize: 11, color: '#fff', lineHeight: 1,
                     transition: 'background .1s',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(220,38,38,0.85)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
+                  className="hov-close"
                 >✕</div>
               )}
             </div>

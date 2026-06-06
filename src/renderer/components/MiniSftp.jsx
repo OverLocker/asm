@@ -164,8 +164,7 @@ export default function MiniSftp({ activeTab, onOpenEditor }) {
               background: selected === item.name ? 'var(--bg3)' : 'transparent',
               opacity: transferring === item.name ? 0.5 : 1,
             }}
-            onMouseEnter={(e) => { if (selected !== item.name) e.currentTarget.style.background = 'var(--bg2)' }}
-            onMouseLeave={(e) => { if (selected !== item.name) e.currentTarget.style.background = 'transparent' }}
+            className={selected === item.name ? '' : 'hov-bg'}
             onContextMenu={(e) => { e.preventDefault(); setSelected(item.name) }}
           >
             <span style={{ flexShrink: 0 }}>
@@ -211,8 +210,7 @@ function ActionBtn({ children, onClick }) {
       flex: 1, fontSize: 10, padding: '3px 6px', borderRadius: 4, cursor: 'pointer',
       background: 'var(--bg3)', color: 'var(--text1)', border: '1px solid var(--border2)',
     }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg4)'}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg3)'}
+      className="hov-bg4"
     >{children}</button>
   )
 }

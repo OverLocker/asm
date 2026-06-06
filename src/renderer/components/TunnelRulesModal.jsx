@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 
 const EMPTY_RULE = { name: '', direction: 'local', localPort: '', remoteHost: 'localhost', remotePort: '', enabled: true }
 
-export default function TunnelRulesModal({ rules, onSave, onClose }) {
+function TunnelRulesModal({ rules, onSave, onClose }) {
   const [draft, setDraft] = useState(rules.map((r) => ({ ...r })))
   const [editId, setEditId] = useState(null) // id редактируемого правила
 
@@ -43,8 +43,7 @@ export default function TunnelRulesModal({ rules, onSave, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px 13px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text0)' }}>🔌 Глобальные туннели</span>
           <button onClick={onClose} style={{ marginLeft: 'auto', color: 'var(--text3)', fontSize: 18 }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text0)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+            className="hov-text0"
           >×</button>
         </div>
 
@@ -68,8 +67,7 @@ export default function TunnelRulesModal({ rules, onSave, onClose }) {
                     background: editId === rule.id ? 'var(--bg2)' : 'transparent',
                     borderLeft: editId === rule.id ? '2px solid var(--accent)' : '2px solid transparent',
                   }}
-                  onMouseEnter={(e) => { if (editId !== rule.id) e.currentTarget.style.background = 'var(--bg2)' }}
-                  onMouseLeave={(e) => { if (editId !== rule.id) e.currentTarget.style.background = 'transparent' }}
+                  className={editId === rule.id ? '' : 'hov-bg'}
                 >
                   {/* Тоггл включён/выключен */}
                   <div
@@ -102,8 +100,7 @@ export default function TunnelRulesModal({ rules, onSave, onClose }) {
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteRule(rule.id) }}
                     style={{ color: 'var(--text3)', fontSize: 14, padding: '0 2px', flexShrink: 0 }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--red)'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+                    className="hov-red"
                   >×</button>
                 </div>
               ))}
@@ -116,8 +113,7 @@ export default function TunnelRulesModal({ rules, onSave, onClose }) {
                   background: 'var(--bg2)', border: '1px solid var(--border2)', color: 'var(--text1)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg3)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg2)'}
+                className="hov-bg3"
               >
                 <span style={{ fontSize: 14 }}>+</span> Новое правило
               </button>
@@ -276,3 +272,5 @@ function Toggle({ value, onChange, label }) {
     </div>
   )
 }
+
+export default React.memo(TunnelRulesModal)

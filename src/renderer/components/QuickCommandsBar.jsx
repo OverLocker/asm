@@ -62,8 +62,7 @@ function ManageModal({ cmds, onEdit, onDelete, onAdd, onClose }) {
             ? <div style={{ padding:'24px 18px', fontSize:13, color:'var(--text3)', textAlign:'center' }}>Список пуст — добавьте первую команду</div>
             : cmds.map(cmd => (
               <div key={cmd.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 18px', borderBottom:'1px solid var(--border)' }}
-                onMouseEnter={e=>e.currentTarget.style.background='var(--bg2)'}
-                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                className="hov-bg"
               >
                 <div style={{ width:10, height:10, borderRadius:2, background:cmd.color, flexShrink:0 }} />
                 <div style={{ flex:1, minWidth:0 }}>
@@ -88,7 +87,7 @@ const inp = { fontSize:12, padding:'6px 10px', borderRadius:6, outline:'none', b
 const btn = { fontSize:12, padding:'5px 14px', borderRadius:6, cursor:'pointer', background:'var(--bg2)', color:'var(--text1)', border:'1px solid var(--border2)' }
 
 // ─── Полоска ───────────────────────────────────────────────────────────────
-export default function QuickCommandsBar({ onSend }) {
+function QuickCommandsBar({ onSend }) {
   const [cmds,  setCmds]  = useState([])
   const [modal, setModal] = useState(null) // null | 'manage' | 'new' | cmd-object
 
@@ -130,13 +129,11 @@ export default function QuickCommandsBar({ onSend }) {
         </div>
         <button onClick={()=>setModal('manage')} title="Управление командами"
           style={{ fontSize:11, padding:'1px 8px', borderRadius:4, flexShrink:0, background:'transparent', color:'var(--text3)', border:'1px solid var(--border2)', cursor:'pointer' }}
-          onMouseEnter={e=>{ e.currentTarget.style.color='var(--accent)'; e.currentTarget.style.borderColor='var(--accent)' }}
-          onMouseLeave={e=>{ e.currentTarget.style.color='var(--text3)'; e.currentTarget.style.borderColor='var(--border2)' }}
+          className="hov-border-accent"
         >✎</button>
         <button onClick={()=>setModal('new')} title="Добавить команду"
           style={{ fontSize:14, width:20, height:20, borderRadius:4, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background:'transparent', color:'var(--text3)', border:'1px solid var(--border2)', cursor:'pointer', lineHeight:1, padding:0 }}
-          onMouseEnter={e=>{ e.currentTarget.style.color='var(--accent)'; e.currentTarget.style.borderColor='var(--accent)' }}
-          onMouseLeave={e=>{ e.currentTarget.style.color='var(--text3)'; e.currentTarget.style.borderColor='var(--border2)' }}
+          className="hov-border-accent"
         >+</button>
       </div>
 
@@ -147,3 +144,5 @@ export default function QuickCommandsBar({ onSend }) {
     </>
   )
 }
+
+export default React.memo(QuickCommandsBar)

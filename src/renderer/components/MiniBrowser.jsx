@@ -156,8 +156,7 @@ export default function MiniBrowser({ host }) {
               cursor: 'pointer',
               transition: 'background .1s',
             }}
-            onMouseEnter={(e) => { if (selected !== item.name) e.currentTarget.style.background = 'var(--bg2)' }}
-            onMouseLeave={(e) => { if (selected !== item.name) e.currentTarget.style.background = 'transparent' }}
+            className={selected === item.name ? '' : 'hov-bg'}
           >
             <span style={{ fontSize: 10, flexShrink: 0 }}>{item.isDir ? '📁' : '📄'}</span>
             <span style={{

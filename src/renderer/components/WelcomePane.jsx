@@ -29,8 +29,7 @@ function HostCard({ entry, host, badge, onOpen, onContextMenu }) {
         cursor: alive ? 'pointer' : 'default',
         transition: 'border-color .12s, background .12s',
       }}
-      onMouseEnter={(e) => { if (!alive) return; e.currentTarget.style.background='var(--bg2)'; e.currentTarget.style.borderColor='var(--border2)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background='var(--bg1)'; e.currentTarget.style.borderColor='var(--border)' }}
+      className={alive ? 'hov-bg' : ''}
     >
       <div style={{
         width: 30, height: 30, borderRadius: 7, flexShrink: 0,
@@ -100,13 +99,12 @@ function HostCtxMenu({ x, y, host, isFavorite, onOpen, onToggleFavorite, onClose
 function MI({ children, onClick }) {
   return (
     <div onClick={onClick} style={{ padding: '7px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--text0)' }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      className="hov-bg"
     >{children}</div>
   )
 }
 
-export default function WelcomePane({ hosts, history, favorites, onOpen, onOpenSettings, onToggleFavorite, historyLimit = 5 }) {
+function WelcomePane({ hosts, history, favorites, onOpen, onOpenSettings, onToggleFavorite, historyLimit = 5 }) {
   const [ctxMenu, setCtxMenu] = useState(null)
 
   const handleCtx = (e, host) => {
@@ -176,8 +174,7 @@ export default function WelcomePane({ hosts, history, favorites, onOpen, onOpenS
           fontSize: 11, color: 'var(--text3)', padding: '4px 10px',
           borderRadius: 5, border: '1px solid var(--border2)', background: 'transparent', cursor: 'pointer',
         }}
-          onMouseEnter={(e) => { e.currentTarget.style.color='var(--accent)'; e.currentTarget.style.borderColor='var(--accent)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color='var(--text3)'; e.currentTarget.style.borderColor='var(--border2)' }}
+          className="hov-border-accent"
         >⚙ Настройки</button>
       </div>
 
@@ -202,3 +199,5 @@ function SectionTitle({ children }) {
     </div>
   )
 }
+
+export default React.memo(WelcomePane)

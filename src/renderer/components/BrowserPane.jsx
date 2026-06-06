@@ -9,7 +9,7 @@ function nearestZoom(z) {
   return ZOOM_STEPS.reduce((a, b) => Math.abs(b - z) < Math.abs(a - z) ? b : a)
 }
 
-export default function BrowserPane({ tab, browserZoom, browserNewTab, browserHomePage, onUpdate }) {
+function BrowserPane({ tab, browserZoom, browserNewTab, browserHomePage, onUpdate }) {
   // tab.browserTabs: [{ id, url, title, favicon, zoom }]
   // tab.activeBrowserTab: id
 
@@ -244,8 +244,7 @@ export default function BrowserPane({ tab, browserZoom, browserNewTab, browserHo
               <button
                 onClick={(e) => { e.stopPropagation(); closeBTab(bt.id) }}
                 style={{ fontSize: 12, color: 'var(--text3)', padding: '0 2px', flexShrink: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--red)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+                className="hov-red"
               >×</button>
             )}
           </div>
@@ -254,8 +253,7 @@ export default function BrowserPane({ tab, browserZoom, browserNewTab, browserHo
         <button
           onClick={() => newBTab()}
           style={{ padding: '0 12px', height: '100%', color: 'var(--text3)', fontSize: 16, flexShrink: 0 }}
-          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+          className="hov-accent"
         >+</button>
       </div>
 
@@ -360,3 +358,5 @@ function NavBtn({ children, onClick, disabled, title }) {
     >{children}</button>
   )
 }
+
+export default React.memo(BrowserPane)

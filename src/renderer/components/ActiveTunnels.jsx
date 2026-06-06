@@ -8,7 +8,7 @@ function fmtBytes(b) {
   return `${(b/1073741824).toFixed(1)}G`
 }
 
-export default function ActiveTunnels({ autoTunnels, tabs, onStop, onOpenBrowser }) {
+function ActiveTunnels({ autoTunnels, tabs, onStop, onOpenBrowser }) {
   const entries = Object.entries(autoTunnels).flatMap(([tabId, tunnels]) => {
     const tab = tabs.find((t) => t.id === tabId)
     return tunnels.map((t) => ({ ...t, tabId, tabTitle: tab?.title || tabId }))
@@ -139,8 +139,7 @@ export default function ActiveTunnels({ autoTunnels, tabs, onStop, onOpenBrowser
                       fontFamily: 'var(--font-mono)', flexShrink: 0,
                       fontWeight: 600, transition: 'opacity 0.2s',
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                    className="hov-dim"
                   >🌐 :{rule.localPort}</button>
                 )}
                 {isSocks && (
@@ -155,8 +154,7 @@ export default function ActiveTunnels({ autoTunnels, tabs, onStop, onOpenBrowser
                 <button
                   onClick={() => onStop(tid)}
                   style={{ color: 'var(--text3)', fontSize: 13, padding: '0 2px', flexShrink: 0 }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--red)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+                  className="hov-red"
                 >×</button>
               </div>
             )
@@ -166,3 +164,5 @@ export default function ActiveTunnels({ autoTunnels, tabs, onStop, onOpenBrowser
     </div>
   )
 }
+
+export default React.memo(ActiveTunnels)

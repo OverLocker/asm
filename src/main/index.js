@@ -287,24 +287,58 @@ ipcMain.handle('dialog:openFile', async (event, opts = {}) => {
 
 const ptySessions = new Map()
 
-ipcMain.handle('pty:spawn', async (event, { id, host, user, port, identityFile, proxyJump, isLocal }) => {
-  // Локальный терминал — запускаем shell напрямую
-  const shell = process.env.SHELL || '/bin/bash'
-  const bin  = isLocal ? '/bin/bash' : 'ssh'
-  const args = isLocal ? ['--login', '-i'] : []  // -i для интерактивного режима
-  if (!isLocal) {
-    if (port && port !== 22) args.push('-p', String(port))
-    if (identityFile) args.push('-i', identityFile)
-    if (proxyJump) args.push('-J', proxyJump)
-    if (appSettings.x11Forwarding) args.push('-Y')
-    // Передаём xterm на сервер чтобы F-keys работали везде (mc, vim, nano)
-    // xterm без суффикса есть в terminfo на всех серверах
-    args.push('-o', 'SetEnv=TERM=xterm-256color')
-    if (user) args.push(`${user}@${host}`)
-    else args.push(host)
+// Список последовательных портов — ищем /dev/tty{USB,ACM,S}* и /dev/cu.*
+ipcMain.handle('serial:list-ports', () => {
+  try {
+    const devs = fs.readdirSync('/dev')
+    const ports = devs
+      .filter(d => /^(ttyUSB|ttyACM|ttyS\d|cu\.)/.test(d))
+      .map(d => `/dev/${d}`)
+      .sort()
+    return ports
+  } catch { return [] }
+})
+
+ipcMain.handle('pty:spawn', async (event, { id, host, user, port, identityFile, proxyJump, isLocal, isSerial, serialPort, baudRate, dataBits, parity, stopBits, serialProg }) => {
+
+  let spawnBin, spawnArgs
+
+  if (isSerial) {
+    // ── Serial: запускаем picocom / screen / minicom через PTY ──
+    const prog = serialProg || 'picocom'
+    const baud = String(baudRate || 115200)
+    const dev  = serialPort
+
+    if (prog === 'screen') {
+      spawnBin  = 'screen'
+      spawnArgs = [dev, baud]
+    } else if (prog === 'minicom') {
+      spawnBin  = 'minicom'
+      spawnArgs = ['-D', dev, '-b', baud, '-8']
+    } else {
+      // picocom (default)
+      const parityFlag = parity === 'even' ? 'e' : parity === 'odd' ? 'o' : 'n'
+      spawnBin  = 'picocom'
+      spawnArgs = ['-b', baud, '--databits', String(dataBits || 8), '--parity', parityFlag, '--stopbits', String(stopBits || 1), '--omap', 'crcrlf', dev]
+    }
+  } else {
+    // ── SSH / Local ──
+    const bin  = isLocal ? '/bin/bash' : 'ssh'
+    const args = isLocal ? [] : []
+    if (!isLocal) {
+      if (port && port !== 22) args.push('-p', String(port))
+      if (identityFile) args.push('-i', identityFile)
+      if (proxyJump) args.push('-J', proxyJump)
+      if (appSettings.x11Forwarding) args.push('-Y')
+      args.push('-o', 'SetEnv=TERM=xterm-256color')
+      if (user) args.push(`${user}@${host}`)
+      else args.push(host)
+    }
+    spawnBin  = bin
+    spawnArgs = args
   }
 
-  // Полная ENV с поддержкой цветов для обоих случаев (локальный + SSH)
+  // Полная ENV с поддержкой цветов
   const env = {
     ...process.env,
     TERM: 'xterm-256color',
@@ -321,17 +355,13 @@ ipcMain.handle('pty:spawn', async (event, { id, host, user, port, identityFile, 
     MC_SKIN: process.env.MC_SKIN || 'default',
   }
 
-  // Для локального терминала — создаём временный rcfile с alias mc
-  // Это позволяет mc всегда запускаться с правильным TERM независимо от настроек
-  let spawnBin  = bin
-  let spawnArgs = args
-  if (isLocal) {
+  // Для локального терминала — временный rcfile с alias mc
+  if (!isSerial && isLocal) {
     const rcFile = path.join(os.tmpdir(), 'asm_bash_rc.sh')
     const rcContent = [
       '# SSHM auto-generated rc',
       '[ -f ~/.bashrc ] && source ~/.bashrc',
       '[ -f ~/.bash_profile ] && source ~/.bash_profile 2>/dev/null',
-      "# mc alias: запускает с TERM=screen-256color для правильной псевдографики",
       "alias mc='TERM=screen-256color mc'",
       '',
     ].join('\n')

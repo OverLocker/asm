@@ -155,6 +155,9 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
   completions: (opts) => ipcRenderer.invoke('ssh:completions', opts),
+  serial: {
+    listPorts: () => ipcRenderer.invoke('serial:list-ports'),
+  },
   sshConfig: {
     listFiles:     () => ipcRenderer.invoke('ssh:list-config-files'),
     addHost:       (opts) => ipcRenderer.invoke('ssh:add-host', opts),

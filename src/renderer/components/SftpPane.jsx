@@ -24,7 +24,7 @@ function isText(name) {
   return TEXT_EXTS.has(ext) || !name.includes('.')
 }
 
-export default function SftpPane({ tab, onUpdate, onOpenEditor }) {
+function SftpPane({ tab, onUpdate, onOpenEditor }) {
   const [copyStatus, setCopyStatus] = useState(null)
   // Копируем путь во внутрь и отслеживаем прогресс
   const doCopy = async (item) => {
@@ -445,8 +445,7 @@ export default function SftpPane({ tab, onUpdate, onOpenEditor }) {
                     transition: 'background .1s',
                     opacity: transferring === item.name ? 0.5 : 1,
                   }}
-                  onMouseEnter={(e) => { if (selected !== item.name) e.currentTarget.style.background = 'var(--bg2)' }}
-                  onMouseLeave={(e) => { if (selected !== item.name) e.currentTarget.style.background = 'transparent' }}
+                  className={selected === item.name ? '' : 'hov-bg'}
                 >
                   <td style={{ padding: '5px 14px', fontSize: 12, color: 'var(--text0)' }}>
                     <span style={{ marginRight: 8 }}>
@@ -648,8 +647,7 @@ function CtxItem({ children, onClick, danger, disabled }) {
     <div onClick={disabled ? undefined : onClick}
       style={{ padding: '7px 14px', fontSize: 12, cursor: disabled ? 'default' : 'pointer',
         color: danger ? 'var(--red)' : disabled ? 'var(--text3)' : 'var(--text0)' }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = 'var(--bg2)' }}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      className={disabled ? '' : 'hov-bg'}
     >{children}</div>
   )
 }
@@ -666,8 +664,7 @@ function TBtn({ children, onClick, disabled, title }) {
         border: '1px solid var(--border2)', fontWeight: 500, whiteSpace: 'nowrap',
         transition: 'background .1s',
       }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = 'var(--bg4)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg3)' }}
+      className={disabled ? '' : 'hov-bg4'}
     >{children}</button>
   )
 }
@@ -679,3 +676,5 @@ function StatusMsg({ icon, text }) {
     </div>
   )
 }
+
+export default React.memo(SftpPane)

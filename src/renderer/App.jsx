@@ -546,8 +546,7 @@ return (
             color: 'var(--text3)', cursor: 'pointer', fontSize: 10, writingMode: 'vertical-rl',
             letterSpacing: 1,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg2)'; e.currentTarget.style.color = 'var(--accent)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg1)'; e.currentTarget.style.color = 'var(--text3)' }}
+          className="hov-bg-accent"
         >▶</button>
       )}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-export default function ExportImportModal({ hosts, groups, onClose, onImported }) {
+function ExportImportModal({ hosts, groups, onClose, onImported }) {
   const [tab, setTab] = useState('export')
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -50,7 +50,7 @@ function ExportPanel({ hosts, groups, onClose }) {
         <div style={{ maxHeight: 200, overflowY: 'auto', background: 'var(--bg2)', borderRadius: 7, border: '1px solid var(--border2)' }}>
           {hosts.map((h) => (
             <label key={h.host} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-              onMouseEnter={(e) => e.currentTarget.style.background='var(--bg3)'} onMouseLeave={(e) => e.currentTarget.style.background='transparent'}>
+              className="hov-bg3">
               <input type="checkbox" checked={sel.has(h.host)} onChange={() => toggle(h.host)} style={{ accentColor: 'var(--accent)' }}/>
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text0)' }}>{h.host}</span>
               <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 'auto' }}>{h.user ? h.user+'@' : ''}{h.hostname}{h.port!==22 ? ':'+h.port : ''}</span>
@@ -145,7 +145,7 @@ function ImportPanel({ onClose, onImported }) {
         <div style={{ maxHeight: 180, overflowY: 'auto', background: 'var(--bg2)', borderRadius: 7, border: '1px solid var(--border2)' }}>
           {data.hosts.map((h) => (
             <label key={h.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-              onMouseEnter={(e) => e.currentTarget.style.background='var(--bg3)'} onMouseLeave={(e) => e.currentTarget.style.background='transparent'}>
+              className="hov-bg3">
               <input type="checkbox" checked={sel.has(h.name)} onChange={() => toggle(h.name)} style={{ accentColor: 'var(--accent)' }}/>
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text0)' }}>{h.name}</span>
               <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 'auto' }}>{h.user ? h.user+'@' : ''}{h.hostname}</span>
@@ -174,3 +174,5 @@ function ImportPanel({ onClose, onImported }) {
     </div>
   )
 }
+
+export default React.memo(ExportImportModal)

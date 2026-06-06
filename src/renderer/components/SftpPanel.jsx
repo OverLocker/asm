@@ -343,8 +343,7 @@ const SftpPanel = forwardRef(function SftpPanel({
                   whiteSpace: 'nowrap', flexShrink: i < arr.length - 1 ? 0 : 1,
                   overflow: 'hidden', textOverflow: 'ellipsis',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                className="hov-underline"
               >{crumb.label}</span>
               {i < arr.length - 1 && <span style={{ color: 'var(--text3)', flexShrink: 0 }}>/</span>}
             </React.Fragment>
@@ -405,8 +404,7 @@ const SftpPanel = forwardRef(function SftpPanel({
                 <tr
                   onDoubleClick={goUp}
                   style={{ cursor: 'pointer' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  className="hov-bg"
                 >
                   <td style={{ padding: '4px 10px', color: 'var(--text2)' }} colSpan={3}>
                     📁 ..
@@ -438,8 +436,7 @@ const SftpPanel = forwardRef(function SftpPanel({
                       cursor: 'pointer',
                       opacity: transferring ? 0.6 : 1,
                     }}
-                    onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = 'var(--bg2)' }}
-                    onMouseLeave={(e) => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
+                    className={isSel ? '' : 'hov-bg'}
                   >
                     <td style={{ padding: '4px 10px', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: 0 }}>
                       <span style={{ marginRight: 6 }}>{fileIcon(item)}</span>
@@ -567,8 +564,7 @@ function NavBtn({ children, onClick, disabled, title }) {
         background: 'var(--bg3)', border: '1px solid var(--border2)',
         color: disabled ? 'var(--text3)' : 'var(--text1)', cursor: disabled ? 'default' : 'pointer',
       }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = 'var(--bg4)' }}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg3)'}
+      className={disabled ? '' : 'hov-bg4'}
     >{children}</button>
   )
 }
@@ -579,8 +575,7 @@ function Th({ children, onClick, style }) {
       padding: '3px 5px', fontWeight: 600, cursor: 'pointer',
       userSelect: 'none', whiteSpace: 'nowrap', ...style,
     }}
-      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text0)'}
-      onMouseLeave={(e) => e.currentTarget.style.color = ''}
+      className="hov-text0"
     >{children}</th>
   )
 }
@@ -644,8 +639,7 @@ function MI({ children, onClick, danger }) {
   return (
     <div onClick={onClick}
       style={{ padding: '7px 14px', fontSize: 12, cursor: 'pointer', color: danger ? 'var(--red)' : 'var(--text0)' }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      className="hov-bg"
     >{children}</div>
   )
 }
