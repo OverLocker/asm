@@ -12,6 +12,7 @@ import AddHostModal       from './components/AddHostModal'
 import ActiveTunnels      from './components/ActiveTunnels'
 import BrowserPane        from './components/BrowserPane'
 import EditorPane         from './components/EditorPane'
+import HotkeyHelp        from './components/HotkeyHelp'
 import SplitPane          from './components/SplitPane'
 import SftpCommander      from './components/SftpCommander'
 import ExportImportModal  from './components/ExportImportModal'
@@ -55,6 +56,8 @@ export default function App() {
   const [uiFullscreen, setUiFullscreen] = useState(false)    // ← полный экран (без TabBar/Sidebar)
   const [termSettings, setTermSettings] = useState(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
+  const [showHelp, setShowHelp]         = useState(false)
+  const [monitorEnabled, setMonitorEnabled] = useState(false)
   const [history, setHistory]           = useState([])
   const [tunnelRules, setTunnelRules]   = useState([])
   const [hostSettings, setHostSettings] = useState({})
@@ -110,6 +113,10 @@ export default function App() {
           window.api.view?.setFullScreen?.(next)
           return next
         })
+      }
+      if (e.key === 'F1') {
+        e.preventDefault()
+        setShowHelp(v => !v)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -382,6 +389,29 @@ export default function App() {
     })
   }, [handleTabConnected])
 
+  // Стабильные per-tabId коллбэки — не пересоздаются на каждый рендер App
+  // Предотвращает ненужные ре-рендеры SplitPane/SftpPane/EditorPane
+  const tabUpdatersRef = React.useRef({})
+  const tabActivityRef = React.useRef({})
+  React.useEffect(() => {
+    const ids = new Set(tabs.map(t => t.id))
+    Object.keys(tabUpdatersRef.current).forEach(id => { if (!ids.has(id)) delete tabUpdatersRef.current[id] })
+    Object.keys(tabActivityRef.current).forEach(id => { if (!ids.has(id)) delete tabActivityRef.current[id] })
+  }, [tabs])
+  const getTabUpdater = React.useCallback((tabId) => {
+    if (!tabUpdatersRef.current[tabId])
+      tabUpdatersRef.current[tabId] = (p) => updateTab(tabId, p)
+    return tabUpdatersRef.current[tabId]
+  }, [updateTab])
+  const getTabActivity = React.useCallback((tabId) => {
+    if (!tabActivityRef.current[tabId])
+      tabActivityRef.current[tabId] = () => {
+        if (activeTabRef.current !== tabId)
+          setTabs(t => t.map(x => x.id === tabId ? { ...x, hasActivity: true } : x))
+      }
+    return tabActivityRef.current[tabId]
+  }, [])
+
   // ─── SFTP Commander ───────────────────────────────────────────────────────
   // openSftpCommander() — открыть пустой
   // openSftpCommander(host, 'left'|'right') — подключить панель
@@ -452,6 +482,7 @@ export default function App() {
   const onHideSidebarCb  = useCallback(() => setSidebarHidden(true), [])
 
   
+  // activeTabData оставлен для совместимости если где-то используется
   const activeTabData = useMemo(() => tabs.find(t => t.id === activeTab) || null, [tabs, activeTab])
 
 return (
@@ -544,6 +575,8 @@ return (
               setX11(next)
               await window.api.ssh?.setX11Forwarding?.(next)
             }}
+            monitor={monitorEnabled}
+            onToggleMonitor={() => setMonitorEnabled(v => !v)}
           />
         )}
 
@@ -559,8 +592,10 @@ return (
               historyLimit={termSettings.historyLimit ?? 5}
             />
           )}
-          {activeTabData && (() => { const tab = activeTabData; return (
-            <div key={tab.id} style={{ display: tab.id === activeTab ? 'flex' : 'none', height: '100%', minHeight: 0, flexDirection: 'column' }}>
+          {tabs.map(tab => {
+            const isActive = tab.id === activeTab
+            return (
+            <div key={tab.id} style={{ display: isActive ? 'flex' : 'none', height: '100%', minHeight: 0, flexDirection: 'column' }}>
               <TabErrorBoundary key={tab.id}>
               {tab.type === 'terminal' && (
                 <SplitPane
@@ -568,38 +603,36 @@ return (
                   tab={tab}
                   termSettings={termSettings}
                   splitBorderSize={termSettings.splitBorderSize ?? 2}
-                  onUpdate={(p) => updateTab(tab.id, p)}
+                  onUpdate={getTabUpdater(tab.id)}
                   onReconnect={handleReconnect}
                   onOpenBrowser={openBrowser}
-                  onActivity={() => {
-                    if (activeTabRef.current !== tab.id) {
-                      setTabs((t) => t.map((x) => x.id === tab.id ? { ...x, hasActivity: true } : x))
-                    }
-                  }}
+                  showMonitor={monitorEnabled}
+                  onActivity={getTabActivity(tab.id)}
                 />
               )}
-              {tab.type === 'sftp'     && <SftpPane    tab={tab} onUpdate={(p) => updateTab(tab.id, p)} onOpenEditor={openEditorTab} />}
-              {tab.type === 'editor'   && <EditorPane  tab={tab} onUpdate={(p) => updateTab(tab.id, p)} />}
-              {tab.type === 'browser'   && (
+              {tab.type === 'sftp'     && <SftpPane    tab={tab} onUpdate={getTabUpdater(tab.id)} onOpenEditor={openEditorTab} />}
+              {tab.type === 'editor'   && <EditorPane  tab={tab} onUpdate={getTabUpdater(tab.id)} />}
+              {tab.type === 'browser'  && (
                 <BrowserPane
                   tab={tab}
                   browserZoom={termSettings.browserZoom}
                   browserNewTab={termSettings.browserNewTab}
                   browserHomePage={termSettings.browserHomePage}
-                  onUpdate={(p) => updateTab(tab.id, p)}
+                  onUpdate={getTabUpdater(tab.id)}
                 />
               )}
-              {tab.type === 'tunnel'   && <TunnelPane  tab={tab} onUpdate={(p) => updateTab(tab.id, p)} />}
+              {tab.type === 'tunnel'   && <TunnelPane  tab={tab} onUpdate={getTabUpdater(tab.id)} />}
               {tab.type === 'sftp-commander' && (
                 <SftpCommander
                   tab={{ ...tab, allHosts: hosts }}
-                  onUpdate={(p) => updateTab(tab.id, p)}
+                  onUpdate={getTabUpdater(tab.id)}
                   onOpenEditor={openEditorTab}
                 />
               )}
               </TabErrorBoundary>
             </div>
-           )})() }
+            )
+          })}
         </div>
       </div>
 
@@ -638,6 +671,8 @@ return (
         onStop={stopSingleTunnel}
         onOpenBrowser={openBrowser}
       />
+
+      {showHelp && <HotkeyHelp onClose={() => setShowHelp(false)} />}
 
     </div>
   )

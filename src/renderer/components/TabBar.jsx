@@ -31,6 +31,7 @@ const TAB_COLORS = [
 function TabBar({
   onOpenSftpCommander, tabs, activeTab, onSelect, onClose, onOpenSettings, onOpenTunnels,
   activeTunnelCount, onOpenLocalTerminal, onSetTabColor, onGoHome, x11, onToggleX11,
+  monitor, onToggleMonitor,
 }) {
   const [ctxMenu, setCtxMenu] = useState(null)
   const tabsContainerRef = useRef(null)
@@ -157,6 +158,20 @@ function TabBar({
           }}
         >
           {x11 ? '✦X11' : 'X11'}
+        </button>
+      )}
+
+      {onToggleMonitor && (
+        <button
+          className="tb-x11"
+          onClick={onToggleMonitor}
+          title={monitor ? 'Мониторинг хоста включён' : 'Мониторинг хоста выключен'}
+          style={{
+            color:      monitor ? 'var(--green)' : 'var(--text3)',
+            background: monitor ? 'rgba(22,163,74,0.08)' : 'transparent',
+          }}
+        >
+          {monitor ? '✦MON' : 'MON'}
         </button>
       )}
 

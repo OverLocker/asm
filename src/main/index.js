@@ -159,6 +159,13 @@ app.on('before-quit', () => {
     try { t.conn.end() } catch {}
   }
   tunnels.clear()
+
+  // Мониторы хостов
+  for (const [id, m] of monitorSessions) {
+    clearInterval(m.interval)
+    try { m.conn.end() } catch {}
+  }
+  monitorSessions.clear()
 })
 app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow())
 
@@ -1043,6 +1050,19 @@ ipcMain.handle('notes:save', (event, notes) => {
   return { ok: true }
 })
 
+// ─── Quick Commands ───────────────────────────────────────────────────────────
+
+const quickCommandsFile = path.join(app.getPath('userData'), 'quick-commands.json')
+
+ipcMain.handle('quickCommands:load', () => {
+  try { return JSON.parse(fs.readFileSync(quickCommandsFile, 'utf8')) } catch { return [] }
+})
+
+ipcMain.handle('quickCommands:save', (event, cmds) => {
+  scheduleJsonWrite(quickCommandsFile, cmds)
+  return { ok: true }
+})
+
 // ─── Groups ──────────────────────────────────────────────────────────────────
 
 const groupsFile = path.join(app.getPath('userData'), 'groups.json')
@@ -1657,4 +1677,159 @@ ipcMain.handle('ssh:delete-password', (event, { hostName }) => {
   delete data[hostName]
   savePasswords(data)
   return { ok: true }
+})
+
+// ─── Host Monitor ─────────────────────────────────────────────────────────────
+// Отдельное SSH2-соединение только для exec-статистики (не PTY)
+const monitorSessions = new Map() // tabId → { conn, interval, prevCpu, prevNet }
+
+// Команда возвращает строки:
+// 1: cpu_active cpu_idle
+// 2: mem_used_bytes mem_total_bytes
+// 3: tx_bytes rx_bytes
+// 4: uptime_secs
+// 5: hostname
+// 6: username
+// 7+: /mount pct% (по одному на строку)
+const MONITOR_CMD = [
+  "awk '/^cpu /{print $2+$3+$4+$6+$7+$8+$9\" \"$5;exit}' /proc/stat",
+  "awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (t-a)*1024\" \"t*1024}' /proc/meminfo",
+  "awk 'NR>2&&!/lo/{t+=$10;r+=$2}END{print t\" \"r}' /proc/net/dev",
+  "awk '{printf \"%d\\n\",$1}' /proc/uptime",
+  "hostname -s 2>/dev/null || awk -F. '{print $1;exit}' /proc/sys/kernel/hostname",
+  "id -un",
+  "df -h / /boot/efi /boot 2>/dev/null | awk 'NR>1&&/^\\//&&!/snap/{print $6,$5}'",
+].join("; ")
+
+function makeMonitorCfg(host, user, port, identityFile) {
+  const cfg = { host, port: port || 22, username: user || process.env.USER, compress: true, readyTimeout: 8000 }
+  if (identityFile && fs.existsSync(identityFile)) {
+    cfg.privateKey = fs.readFileSync(identityFile)
+  } else {
+    for (const k of ['id_ed25519', 'id_rsa', 'id_ecdsa']) {
+      const p = path.join(os.homedir(), '.ssh', k)
+      if (fs.existsSync(p)) { cfg.privateKey = fs.readFileSync(p); break }
+    }
+  }
+  if (!cfg.privateKey) cfg.agent = process.env.SSH_AUTH_SOCK
+  return cfg
+}
+
+ipcMain.handle('ssh:monitor-start', async (event, { tabId, host, user, port, identityFile }) => {
+  if (monitorSessions.has(tabId)) return { ok: true }
+
+  return new Promise((resolve) => {
+    const conn = new Client()
+    let prevCpu = null
+    let prevNet = null
+
+    const runStats = () => {
+      if (!monitorSessions.has(tabId)) return
+      conn.exec(MONITOR_CMD, (err, stream) => {
+        if (err) return
+        let out = ''
+        stream.on('data', (d) => { out += d.toString() })
+        stream.stderr.on('data', () => {})
+        stream.on('close', () => {
+          try {
+            const lines = out.trim().split('\n').filter(Boolean)
+            if (lines.length < 6) return
+
+            // CPU delta
+            const [cpuA, cpuI] = lines[0].split(' ').map(Number)
+            let cpu = 0
+            if (prevCpu) {
+              const da = cpuA - prevCpu.a
+              const di = cpuI - prevCpu.i
+              cpu = da + di > 0 ? Math.round((da / (da + di)) * 100) : 0
+            }
+            prevCpu = { a: cpuA, i: cpuI }
+
+            // Memory
+            const [memUsed, memTotal] = lines[1].split(' ').map(Number)
+
+            // Network delta
+            const [txBytes, rxBytes] = lines[2].split(' ').map(Number)
+            const now = Date.now()
+            let txRate = 0, rxRate = 0
+            if (prevNet) {
+              const dt = (now - prevNet.time) / 1000
+              if (dt > 0) {
+                txRate = Math.max(0, (txBytes - prevNet.tx) / dt)
+                rxRate = Math.max(0, (rxBytes - prevNet.rx) / dt)
+              }
+            }
+            prevNet = { tx: txBytes, rx: rxBytes, time: now }
+
+            const uptimeSecs = parseInt(lines[3]) || 0
+            const hostname   = lines[4]?.trim() || ''
+            const username   = lines[5]?.trim() || ''
+
+            // Диски: строки вида "/  79%"
+            const disks = []
+            for (let i = 6; i < lines.length; i++) {
+              const parts = lines[i].trim().split(/\s+/)
+              if (parts.length >= 2) disks.push({ mount: parts[0], pct: parseInt(parts[1]) || 0 })
+            }
+
+            mainWindow?.webContents.send(`monitor:stats:${tabId}`, {
+              tabId,
+              stats: { cpu, memUsed, memTotal, txRate, rxRate, uptimeSecs, hostname, username, disks },
+            })
+          } catch {}
+        })
+      })
+    }
+
+    conn.on('ready', () => {
+      runStats()
+      const interval = setInterval(runStats, 3000)
+      monitorSessions.set(tabId, { conn, interval })
+      resolve({ ok: true })
+    })
+
+    conn.on('error', (e) => {
+      monitorSessions.delete(tabId)
+      resolve({ ok: false, error: e.message })
+    })
+
+    conn.connect(makeMonitorCfg(host, user, port, identityFile))
+  })
+})
+
+ipcMain.handle('ssh:monitor-stop', (event, { tabId }) => {
+  const m = monitorSessions.get(tabId)
+  if (m) {
+    clearInterval(m.interval)
+    try { m.conn.end() } catch {}
+    monitorSessions.delete(tabId)
+  }
+  return { ok: true }
+})
+
+// ─── Tab Completion ───────────────────────────────────────────────────────────
+// Одноразовый exec: получаем все команды + алиасы с сервера, кешируем на клиенте
+ipcMain.handle('ssh:completions', async (event, { host, user, port, identityFile }) => {
+  return new Promise((resolve) => {
+    const conn = new Client()
+    const timer = setTimeout(() => { try { conn.end() } catch {} ; resolve({ ok: false, error: 'timeout' }) }, 10000)
+
+    conn.on('ready', () => {
+      conn.exec('{ compgen -c; compgen -a; } 2>/dev/null | sort -u', (err, stream) => {
+        if (err) { clearTimeout(timer); conn.end(); return resolve({ ok: false, error: err.message }) }
+        let out = ''
+        stream.on('data', (d) => { out += d.toString() })
+        stream.stderr.on('data', () => {})
+        stream.on('close', () => {
+          clearTimeout(timer)
+          conn.end()
+          const cmds = out.split('\n').map(s => s.trim()).filter(Boolean)
+          resolve({ ok: true, cmds })
+        })
+      })
+    })
+
+    conn.on('error', (e) => { clearTimeout(timer); resolve({ ok: false, error: e.message }) })
+    conn.connect(makeMonitorCfg(host, user, port, identityFile))
+  })
 })

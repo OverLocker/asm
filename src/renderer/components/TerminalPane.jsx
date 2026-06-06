@@ -46,10 +46,16 @@ export default function TerminalPane({ tab, termSettings, onUpdate, onReconnect,
       cursorStyle: termSettings.cursorStyle,
       scrollback:  termSettings.scrollback,
       allowProposedApi: true,
-      // Правильная передача специальных клавиш (F-keys, Home, End, Delete)
-      // Обязательно для корректной работы mc, vim, nano
       applicationCursor: false,
       macOptionIsMeta:   false,
+      // F1 пробрасываем в window чтобы App.jsx мог поймать
+      customKeyEventHandler: (e) => {
+        if (e.type === 'keydown' && e.key === 'F1') {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1', bubbles: true }))
+          return false
+        }
+        return true
+      },
     })
 
     const fit = new FitAddon()

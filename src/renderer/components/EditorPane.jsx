@@ -62,8 +62,13 @@ export default function EditorPane({ tab, onUpdate }) {
 
   useEffect(() => {
     if (!containerRef.current) return
+    // Флаг отмены — если cleanup сработал до резолва async, не создаём редактор
+    let cancelled = false
 
     window.api.sftp.readText(sftpId, remotePath).then((res) => {
+      if (cancelled) return          // ← StrictMode / быстрое переключение: эффект уже отменён
+      if (!containerRef.current) return
+
       if (!res.ok) { setStatus('error'); setError(res.error); return }
 
       const lang = getLang(fileName)
@@ -90,7 +95,7 @@ export default function EditorPane({ tab, onUpdate }) {
             clearTimeout(saveTimerRef.current)
             saveTimerRef.current = setTimeout(() => {
               saveFile(update.state.doc.toString())
-            }, 2000) // автосохранение через 2 сек после последнего изменения
+            }, 2000)
           }
         }),
         EditorView.theme({
@@ -110,8 +115,16 @@ export default function EditorPane({ tab, onUpdate }) {
     })
 
     return () => {
+      cancelled = true                   // ← Сигнализируем async-колбэку не создавать редактор
       clearTimeout(saveTimerRef.current)
-      viewRef.current?.destroy()
+      if (viewRef.current) {
+        viewRef.current.destroy()
+        viewRef.current = null
+      }
+      // Очищаем DOM-контейнер — иначе при remount старый CodeMirror HTML остаётся
+      if (containerRef.current) {
+        containerRef.current.innerHTML = ''
+      }
     }
   }, [])
 

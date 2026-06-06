@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld('api', {
     load: () => ipcRenderer.invoke('notes:load'),
     save: (notes) => ipcRenderer.invoke('notes:save', notes),
   },
+  quickCommands: {
+    load: () => ipcRenderer.invoke('quickCommands:load'),
+    save: (cmds) => ipcRenderer.invoke('quickCommands:save', cmds),
+  },
   groups: {
     load: () => ipcRenderer.invoke('groups:load'),
     save: (groups) => ipcRenderer.invoke('groups:save', groups),
@@ -141,6 +145,16 @@ contextBridge.exposeInMainWorld('api', {
     load: () => ipcRenderer.invoke('favorites:load'),
     save: (f) => ipcRenderer.invoke('favorites:save', f),
   },
+  monitor: {
+    start:    (tabId, host) => ipcRenderer.invoke('ssh:monitor-start', { tabId, ...host }),
+    stop:     (tabId) => ipcRenderer.invoke('ssh:monitor-stop', { tabId }),
+    onStats:  (tabId, cb) => {
+      const ch = `monitor:stats:${tabId}`
+      ipcRenderer.on(ch, (_, data) => cb(data))
+      return () => ipcRenderer.removeAllListeners(ch)
+    },
+  },
+  completions: (opts) => ipcRenderer.invoke('ssh:completions', opts),
   sshConfig: {
     listFiles:     () => ipcRenderer.invoke('ssh:list-config-files'),
     addHost:       (opts) => ipcRenderer.invoke('ssh:add-host', opts),
