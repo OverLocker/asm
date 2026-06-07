@@ -535,7 +535,7 @@ function GroupHeader({ label, count, collapsed, onToggle, muted, onCtxMenu }) {
   )
 }
 
-const HostRow = React.memo(function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, onOpen, onCtx, compact = false }) {
+function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, onOpen, onCtx, compact = false }) {
   // ✅ НЕ используем hov state — это было причиной React ре-рендера на каждый hover!
   // Вместо этого CSS :hover управляет фоном, а ping триггерится через ref.
   const [ping, setPing] = useState(null)
@@ -635,15 +635,7 @@ const HostRow = React.memo(function HostRow({ host, note, color, depth, searchQ,
       </div>
     </div>
   )
-}, (prev, next) =>
-  prev.host      === next.host        &&
-  prev.note      === next.note        &&
-  prev.color     === next.color       &&
-  prev.tunnelEnabled === next.tunnelEnabled &&
-  prev.searchQ   === next.searchQ     &&
-  prev.compact   === next.compact     &&
-  prev.depth     === next.depth
-)
+}
 
 function ContextMenu({ x, y, host, groupId, customGroups, tunnelEnabled, isFavorite, hostColor, externalTerminal, onOpen, onOpenSplit, onAddToGroup, onRemoveFromGroup, onToggleTunnel, onToggleFavorite, onEditHost, onDeleteHost, onEditNote, onCopySSH, onSetColor, onOpenSftpCommander, allHosts }) {
   const menuRef = useRef(null)

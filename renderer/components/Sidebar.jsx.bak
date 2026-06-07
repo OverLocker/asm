@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import AddHostModal from './AddHostModal'
 import { useInputModal } from './InputModal'
-import './Sidebar.css'
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
@@ -20,11 +19,6 @@ function hostColor(name) {
   return COLORS[n % COLORS.length]
 }
 
-// Возвращает кастомный цвет из hostSettings или авто-цвет
-function hostColorFor(h, hostSettings) {
-  return hostSettings?.[hostKey(h)]?.color || hostColor(h.host)
-}
-
 function matchesSearch(h, q) {
   // Ищем по основному имени, псевдонимам (aliases) и пользователю.
   // hostname (IP/адрес) намеренно исключён — он не является идентификатором для пользователя.
@@ -36,16 +30,14 @@ function matchesSearch(h, q) {
 
 // ─── Главный компонент ───────────────────────────────────────────────────────
 
-export default React.memo(function Sidebar({
-  onEditHost,
+export default function Sidebar({
   hosts,
   customGroups,
   notes,
-  hostSettings,
+  hostSettings,       // { hostKey: { tunnel: bool } }
   search,
   onSearch,
   onOpen,
-  onOpenSplit,
   onSaveCustomGroups,
   onSaveNote,
   onToggleHostTunnel,
@@ -53,14 +45,10 @@ export default React.memo(function Sidebar({
   favorites,
   externalTerminal,
   onAddHost,
-  onSaveHostSettings,
-  onOpenSftpCommander,
   width,
   onResize,
-  compact = false,
-  onHide,
-  onExportImport,
 }) {
+  // "Найденные" свёрнуты по умолчанию
   const [collapsed, setCollapsed] = useState(() => {
     // Все группы свёрнуты по умолчанию при старте
     return { [FOUND_KEY]: true }
@@ -86,9 +74,7 @@ export default React.memo(function Sidebar({
   const { inputModal, askInput } = useInputModal()
   const [groupCtx, setGroupCtx] = useState(null) // { x, y, node }
 
-  const [ctx, setCtx]         = useState(null)
-  const deferredSearch = useDeferredValue(search)
-  const normalizedSearch = useMemo(() => deferredSearch.trim().toLowerCase(), [deferredSearch])   // { x, y, host }
+  const [ctx, setCtx]         = useState(null)   // { x, y, host }
   const [editNote, setEditNote]   = useState(null)
   const [noteText, setNoteText]   = useState('')
 
@@ -158,10 +144,6 @@ export default React.memo(function Sidebar({
       const isCollapsed = !!collapsed[node.id]
       if (isSearching && nodeHosts.length === 0 && !hasChildren) return null
 
-      // Подгруппы видны независимо от collapsed состояния родителя:
-      // collapsed скрывает только хосты группы, но не дочерние группы
-      const showHosts = (!isCollapsed || (isSearching && nodeHosts.length > 0))
-
       return (
         <div key={node.id} style={{ paddingLeft: depth * 12 }}>
           <GroupHeader
@@ -171,27 +153,25 @@ export default React.memo(function Sidebar({
             onToggle={() => setCollapsed((c) => ({ ...c, [node.id]: !c[node.id] }))}
             onCtxMenu={(e) => setGroupCtx({ x: e.clientX, y: e.clientY, node })}
           />
-          {showHosts && (
+          {(!isCollapsed || (isSearching && nodeHosts.length > 0)) && (
             <>
               {nodeHosts.map((h) => (
                 <HostRow
                   key={hostKey(h)}
                   host={h}
                   note={notes[hostKey(h)]}
-                  color={hostColorFor(h, hostSettings)}
+                  color={hostColor(h.host)}
                   depth={depth + 1}
                   searchQ={isSearching ? searchQ : ''}
                   groupId={node.id}
                   tunnelEnabled={!!(hostSettings?.[hostKey(h)]?.tunnel)}
                   onOpen={onOpen}
                   onCtx={openCtx}
-                  compact={compact}
                 />
               ))}
+              {hasChildren && renderCustomGroups(node.children, depth + 1)}
             </>
           )}
-          {/* Дочерние группы: коллапсируются вместе с родителем */}
-          {hasChildren && !isCollapsed && renderCustomGroups(node.children, depth + 1)}
         </div>
       )
     })
@@ -258,26 +238,24 @@ export default React.memo(function Sidebar({
       userSelect: 'none',
       position: 'relative',
       flexShrink: 0,
-      overflow: 'hidden',   // ← фиксирует скролл внутри flex-колонки
-      height: '100%',
     }}>
 
       {/* Заголовок + поиск */}
-      <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, zIndex: 10 }}>
+      <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
             <path d="M8 21h8M12 17v4"/>
           </svg>
-          <span style={{ fontWeight: 600, color: 'var(--text0)', fontSize: 13 }}>ASM</span>
+          <span style={{ fontWeight: 600, color: 'var(--text0)', fontSize: 13 }}>SSHM</span>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>{hosts.length}</span>
-          <button className="sb-header-btn" onClick={onAddHost} title="Добавить хост" style={{ fontSize: 16, marginLeft: 6 }}>+</button>
-          {onExportImport && (
-            <button className="sb-header-btn" onClick={onExportImport} title="Экспорт / Импорт хостов" style={{ fontSize: 11 }}>📦</button>
-          )}
-          {onHide && (
-            <button className="sb-header-btn" onClick={onHide} title="Свернуть панель">◀</button>
-          )}
+          <button
+            onClick={onAddHost}
+            title="Добавить хост"
+            style={{ fontSize: 16, color: 'var(--text3)', padding: '0 2px', marginLeft: 6 }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+          >+</button>
         </div>
         <div style={{ position: 'relative' }}>
           <input
@@ -331,13 +309,12 @@ export default React.memo(function Sidebar({
                 key={hostKey(h)}
                 host={h}
                 note={notes[hostKey(h)]}
-                color={hostColorFor(h, hostSettings)}
+                color={hostColor(h.host)}
                 depth={1}
                 searchQ={isSearching ? searchQ : ''}
                 tunnelEnabled={!!(hostSettings?.[hostKey(h)]?.tunnel)}
                 onOpen={onOpen}
                 onCtx={openCtx}
-                compact={compact}
               />
             ))}
           </div>
@@ -365,10 +342,8 @@ export default React.memo(function Sidebar({
           customGroups={customGroups}
           tunnelEnabled={!!(hostSettings?.[hostKey(ctx.host)]?.tunnel)}
           isFavorite={!!favorites.find((f) => f.host === ctx.host.host)}
-          hostColor={hostColorFor(ctx.host, hostSettings)}
           externalTerminal={externalTerminal}
           onOpen={(type) => { onOpen(ctx.host, type); setCtx(null) }}
-          onOpenSplit={(where) => { onOpenSplit?.(ctx.host, where); setCtx(null) }}
           onAddToGroup={(gid) => { addHostToGroupById(gid, hostKey(ctx.host)); setCtx(null) }}
           onRemoveFromGroup={() => {
             onSaveCustomGroups(removeHostFromGroup(customGroups, ctx.groupId, hostKey(ctx.host)))
@@ -376,52 +351,7 @@ export default React.memo(function Sidebar({
           }}
           onToggleTunnel={() => { onToggleHostTunnel(hostKey(ctx.host)); setCtx(null) }}
           onToggleFavorite={() => { onToggleFavorite(ctx.host); setCtx(null) }}
-          onEditHost={() => { onEditHost && onEditHost(ctx.host); setCtx(null) }}
-          onDeleteHost={async () => {
-            const h = ctx.host
-            setCtx(null)
-            // Диалог подтверждения через window.confirm (нативный)
-            if (!window.confirm(`Удалить хост «${h.host}» из конфига?\nЭто действие необратимо.`)) return
-            // Берём файл источника, иначе перебираем все файлы
-            const files = await window.api.sshConfig.listFiles()
-            const targetFile = h._sourceFile
-              ? (files.find((f) => f.path === h._sourceFile) || files[0])?.path
-              : files[0]?.path
-            if (!targetFile) return
-            const res = await window.api.sshConfig.deleteHost({ filePath: targetFile, hostName: h.host })
-            if (res?.ok) {
-              // Удаляем пароль если был
-              await window.api.sshConfig.deletePassword(h.host).catch(() => {})
-              // Перечитываем хосты
-              const updated = await window.api.sshConfig.reload()
-              // Проброс наверх — нужен onHostsUpdated проп или использовать window event
-              window.dispatchEvent(new CustomEvent('asm:hosts-updated', { detail: updated }))
-            }
-          }}
-          onOpenSftpCommander={(side) => { onOpenSftpCommander?.(ctx.host, side); setCtx(null) }}
           onEditNote={() => { setEditNote(ctx.host); setNoteText(notes[hostKey(ctx.host)] || ''); setCtx(null) }}
-          allHosts={hosts}
-          onCopySSH={() => {
-            const h = ctx.host
-            const port = h.port && h.port !== 22 ? ` -p ${h.port}` : ''
-            const user = h.user ? `${h.user}@` : ''
-            const cmd = `ssh${port} ${user}${h.hostname || h.host}`
-            navigator.clipboard.writeText(cmd).catch(() => {})
-            setCtx(null)
-          }}
-          onSetColor={(color) => {
-            if (onSaveHostSettings) {
-              const key = hostKey(ctx.host)
-              const entry = { ...hostSettings[key] }
-              if (color === null) {
-                delete entry.color
-              } else {
-                entry.color = color
-              }
-              onSaveHostSettings({ ...hostSettings, [key]: entry })
-            }
-            setCtx(null)
-          }}
         />
       )}
 
@@ -475,7 +405,7 @@ export default React.memo(function Sidebar({
       )}
     </div>
   )
-})
+}
 
 // ─── Вспомогательные функции для мутации дерева ──────────────────────────────
 
@@ -535,85 +465,39 @@ function GroupHeader({ label, count, collapsed, onToggle, muted, onCtxMenu }) {
   )
 }
 
-const HostRow = React.memo(function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, onOpen, onCtx, compact = false }) {
-  // ✅ НЕ используем hov state — это было причиной React ре-рендера на каждый hover!
-  // Вместо этого CSS :hover управляет фоном, а ping триггерится через ref.
-  const [ping, setPing] = useState(null)
-  const pingFetchedRef = useRef(false)
-  const pl = (compact ? 8 : 12) + depth * (compact ? 8 : 12)
+function HostRow({ host, note, color, depth, searchQ, groupId, tunnelEnabled, onOpen, onCtx }) {
+  const [hov, setHov] = useState(false)
+  const pl = 12 + depth * 12
 
-  // Ping триггерится один раз при первом наведении — без setState!
-  const handleMouseEnter = useCallback(() => {
-    if (pingFetchedRef.current || ping !== null) return
-    const hostname = host.hostname || host.host
-    if (!hostname || hostname === 'localhost') return
-    pingFetchedRef.current = true
-    window.api.host.ping(hostname, host.port || 22).then(setPing)
-  }, [host, ping])
-
-  const pingColor = ping == null ? 'transparent'
-    : !ping.ok ? '#ef4444'
-    : ping.ms < 50  ? '#22c55e'
-    : ping.ms < 150 ? '#f59e0b'
-    : '#ef4444'
-
-  const pingTitle = ping == null ? ''
-    : !ping.ok ? 'Недоступен'
-    : `${ping.ms} мс`
-
+  // Определяем по какому полю произошло совпадение (для подсказки)
+  // Подсветка строки с адресом если совпадение только по user (не по имени хоста)
   const matchField = searchQ
     ? !host.host.toLowerCase().includes(searchQ) && (host.user || '').toLowerCase().includes(searchQ)
-      ? 'user' : null
+      ? 'user'
+      : null
     : null
-
-  if (compact) {
-    return (
-      <div
-        className="host-row compact"
-        style={{ paddingLeft: pl }}
-        onMouseEnter={handleMouseEnter}
-        onDoubleClick={() => onOpen(host, 'terminal')}
-        onContextMenu={(e) => onCtx(e, host, groupId)}
-      >
-        <div style={{
-          width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-          background: color + '18', border: `1px solid ${color}35`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 9, fontWeight: 600, color, fontFamily: 'var(--font-mono)',
-        }}>
-          {host.host.slice(0, 2).toUpperCase()}
-        </div>
-        <span style={{
-          fontSize: 12, fontWeight: 500, color: 'var(--text0)',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1,
-        }}>
-          {host.host}
-        </span>
-        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          {tunnelEnabled && <span title="Проброс портов" style={{ fontSize: 9 }}>🔌</span>}
-          {note && <span title={note} style={{ color: 'var(--amber)', fontSize: 9 }}>●</span>}
-          {/* ✅ Ping dot: скрыт по умолчанию, показывается через CSS :hover */}
-          {ping && (
-            <span title={pingTitle} className="ping-dot" style={{ background: pingColor, boxShadow: `0 0 4px ${pingColor}` }} />
-          )}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
-      className="host-row"
-      style={{ paddingLeft: pl }}
-      onMouseEnter={handleMouseEnter}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       onDoubleClick={() => onOpen(host, 'terminal')}
       onContextMenu={(e) => onCtx(e, host, groupId)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9,
+        paddingLeft: pl, paddingRight: 10, paddingTop: 4, paddingBottom: 4,
+        cursor: 'pointer',
+        background: hov ? 'var(--bg2)' : 'transparent',
+        transition: 'background .1s',
+      }}
     >
       <div style={{
         width: 26, height: 26, borderRadius: 5, flexShrink: 0,
-        background: color + '18', border: `1px solid ${color}35`,
+        background: color + '18',
+        border: `1px solid ${color}35`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 600, color, fontFamily: 'var(--font-mono)',
+        fontSize: 10, fontWeight: 600, color,
+        fontFamily: 'var(--font-mono)',
       }}>
         {host.host.slice(0, 2).toUpperCase()}
       </div>
@@ -628,33 +512,14 @@ const HostRow = React.memo(function HostRow({ host, note, color, depth, searchQ,
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         {tunnelEnabled && <span title="Проброс портов включён" style={{ fontSize: 10 }}>🔌</span>}
         {note && <span title={note} style={{ color: 'var(--amber)', fontSize: 11 }}>●</span>}
-        {/* ✅ Ping dot: CSS управляет видимостью через .host-row:hover .ping-dot */}
-        {ping && (
-          <span title={pingTitle} className="ping-dot" style={{ background: pingColor, boxShadow: `0 0 4px ${pingColor}` }} />
-        )}
       </div>
     </div>
   )
-}, (prev, next) =>
-  prev.host      === next.host        &&
-  prev.note      === next.note        &&
-  prev.color     === next.color       &&
-  prev.tunnelEnabled === next.tunnelEnabled &&
-  prev.searchQ   === next.searchQ     &&
-  prev.compact   === next.compact     &&
-  prev.depth     === next.depth
-)
+}
 
-function ContextMenu({ x, y, host, groupId, customGroups, tunnelEnabled, isFavorite, hostColor, externalTerminal, onOpen, onOpenSplit, onAddToGroup, onRemoveFromGroup, onToggleTunnel, onToggleFavorite, onEditHost, onDeleteHost, onEditNote, onCopySSH, onSetColor, onOpenSftpCommander, allHosts }) {
+function ContextMenu({ x, y, host, groupId, customGroups, tunnelEnabled, isFavorite, externalTerminal, onOpen, onAddToGroup, onRemoveFromGroup, onToggleTunnel, onToggleFavorite, onEditNote }) {
   const menuRef = useRef(null)
   const [pos, setPos] = useState(null)
-  const [showColorPicker, setShowColorPicker] = useState(false)
-
-  const COLOR_PALETTE = [
-    '#2563eb','#7c3aed','#16a34a','#d97706','#dc2626',
-    '#0891b2','#be185d','#ea580c','#65a30d','#0284c7',
-    '#9333ea','#e11d48','#14b8a6','#f59e0b','#6366f1',
-  ]
 
   // Пересчитываем позицию при изменении размера меню (разворот групп).
   // Используем функциональный setState чтобы не триггерить ре-рендер если позиция не изменилась
@@ -673,7 +538,7 @@ function ContextMenu({ x, y, host, groupId, customGroups, tunnelEnabled, isFavor
     const ro = new ResizeObserver(reposition)
     ro.observe(menuRef.current)
     return () => ro.disconnect()
-  }, [x, y, showColorPicker])
+  }, [x, y])
 
   return (
     <div
@@ -684,146 +549,70 @@ function ContextMenu({ x, y, host, groupId, customGroups, tunnelEnabled, isFavor
         top:  pos ? pos.top  : y,
         zIndex: 1000,
         background: 'var(--bg1)', border: '1px solid var(--border2)',
-        borderRadius: 8, padding: '4px 0', minWidth: 230,
+        borderRadius: 8, padding: '4px 0', minWidth: 220,
         boxShadow: '0 4px 20px rgba(0,0,0,.12)',
         visibility: pos ? 'visible' : 'hidden',
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* ── Подключение ── */}
-      <CtxLabel>Подключение</CtxLabel>
-      <CtxAction onClick={() => onOpen('terminal')}>⌨  Терминал</CtxAction>
-      {onOpenSplit && (
-        <SubMenu label="⌨  Терминал → сплит">
-          <CtxAction onClick={() => onOpenSplit('right')}  indent>▶  Справа</CtxAction>
-          <CtxAction onClick={() => onOpenSplit('left')}   indent>◀  Слева</CtxAction>
-          <CtxAction onClick={() => onOpenSplit('bottom')} indent>▼  Снизу</CtxAction>
-          <CtxAction onClick={() => onOpenSplit('top')}    indent>▲  Сверху</CtxAction>
-        </SubMenu>
-      )}
-      <CtxAction onClick={() => onOpen('sftp')}>📁  SFTP</CtxAction>
-      {onOpenSftpCommander && (
-        <SubMenu label="⇄  В SFTP Commander">
-          <CtxAction indent onClick={() => onOpenSftpCommander('left')}>◧  Левая панель</CtxAction>
-          <CtxAction indent onClick={() => onOpenSftpCommander('right')}>◨  Правая панель</CtxAction>
-        </SubMenu>
-      )}
+      <CtxAction onClick={() => onOpen('terminal')}>⌨  Открыть терминал</CtxAction>
+      <CtxAction onClick={() => onOpen('sftp')}>📁  Открыть SFTP</CtxAction>
       <CtxAction onClick={() => onOpen('tunnel')}>🔌  Туннели</CtxAction>
-      <CtxAction onClick={() => window.api.ssh.openExternal({ host: host.hostname || host.host, user: host.user, port: host.port, identityFile: host.identityFile, externalTerminal })}>↗  Системный терминал</CtxAction>
-
-      <Divider />
-
-      {/* ── Настройки хоста ── */}
-      <CtxLabel>Хост</CtxLabel>
+      <CtxAction onClick={() => window.api.ssh.openExternal({ ...host, externalTerminal })}>↗  Системный терминал</CtxAction>
+      <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
       <CtxAction onClick={onToggleFavorite}>
-        {isFavorite ? '⭐  Убрать из избранного' : '☆  Добавить в избранное'}
+        {isFavorite ? '⭐ Убрать из избранного' : '☆ Добавить в избранное'}
       </CtxAction>
       <CtxAction onClick={onToggleTunnel}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          🔌  Проброс Портов
-          <span style={{
-            marginLeft: 'auto', fontSize: 10, padding: '1px 6px', borderRadius: 3,
-            background: tunnelEnabled ? 'rgba(22,163,74,0.12)' : 'var(--bg3)',
-            color: tunnelEnabled ? 'var(--green)' : 'var(--text3)',
-            border: `1px solid ${tunnelEnabled ? 'rgba(22,163,74,0.25)' : 'var(--border2)'}`,
-          }}>{tunnelEnabled ? 'вкл' : 'выкл'}</span>
-        </span>
+        {tunnelEnabled ? '🔌 Проброс: вкл' : '🔌 Проброс: выкл'}
       </CtxAction>
-
-      <CtxAction onClick={onEditHost}>✎ Редактировать хост</CtxAction>
-      <CtxAction onClick={onDeleteHost} style={{ color: 'var(--red)' }}>✕ Удалить хост</CtxAction>
-
-      {/* Цвет метки */}
-      <div
-        className="ctx-action"
-        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-        onClick={() => setShowColorPicker((v) => !v)}
-      >
-        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: hostColor, border: '1px solid rgba(0,0,0,0.15)', flexShrink: 0 }} />
-        🎨  Цвет метки
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text3)' }}>{showColorPicker ? '▲' : '▼'}</span>
-      </div>
-          {showColorPicker && (
-            <div style={{ padding: '6px 14px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {COLOR_PALETTE.map((c) => (
-                <div key={c} onClick={() => onSetColor(c)} title={c}
-                  className="color-dot"
-                  style={{ width: 18, height: 18, borderRadius: 4, background: c, border: c === hostColor ? '2px solid var(--text0)' : '2px solid transparent' }}
-                />
-              ))}
-              <div onClick={() => onSetColor(null)} title="Авто (сбросить)"
-                className="color-dot"
-                style={{ width: 18, height: 18, borderRadius: 4, border: '2px solid var(--border2)', background: 'linear-gradient(135deg, #ccc 50%, #fff 50%)' }}
-              />
-            </div>
-          )}
-
-      <CtxAction onClick={onEditNote}>📝  Заметка</CtxAction>
-
-      {/* ── Группы ── */}
-      {(customGroups.length > 0 || groupId) && (
+      {groupId && (
         <>
-          <Divider />
-          <CtxLabel>Группы</CtxLabel>
-          {customGroups.length > 0 && (
-            <GroupTree nodes={customGroups} onSelect={onAddToGroup} depth={0} />
-          )}
-          {groupId && (
-            <CtxAction onClick={onRemoveFromGroup} danger>✕  Убрать из группы</CtxAction>
-          )}
+          <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+          <CtxAction onClick={onRemoveFromGroup} danger>✕  Убрать из группы</CtxAction>
         </>
       )}
+      {customGroups.length > 0 && (
+        <>
+          <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+          <div style={{ padding: '4px 14px 2px', fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>
+            🏷 Добавить в группу
+          </div>
+          <GroupTree nodes={customGroups} onSelect={onAddToGroup} depth={0} />
+        </>
+      )}
+      <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+      <CtxAction onClick={onEditNote}>📝  Заметка</CtxAction>
     </div>
   )
 }
 
 // Раскрывающееся дерево групп внутри контекстного меню
-// УЛУЧШЕНО: автораскрытие при наведении + возможность раскрыть подгруппу даже если родитель свёрнут
 function GroupTree({ nodes, onSelect, depth }) {
   const [open, setOpen] = useState({})
-  const [hoverOpen, setHoverOpen] = useState({})
-  
-  const toggleNode = (nodeId) => {
-    setOpen((o) => ({ ...o, [nodeId]: !o[nodeId] }))
-  }
-  
-  const handleNodeHover = (nodeId, hasChildren) => {
-    if (hasChildren) {
-      setHoverOpen((h) => ({ ...h, [nodeId]: true }))
-    }
-  }
-  
-  const handleNodeLeave = (nodeId) => {
-    setHoverOpen((h) => {
-      const next = { ...h }
-      delete next[nodeId]
-      return next
-    })
-  }
-  
   return (
     <>
       {nodes.map((node) => {
         const hasChildren = (node.children || []).length > 0
         const isOpen = open[node.id]
-        const shouldShowChildren = isOpen || hoverOpen[node.id]
         const pl = 14 + depth * 12
-        
         return (
           <React.Fragment key={node.id}>
             <div
-              className="group-tree-item"
-              style={{ padding: `5px 14px 5px ${pl}px` }}
-              onMouseEnter={() => handleNodeHover(node.id, hasChildren)}
-              onMouseLeave={() => handleNodeLeave(node.id)}
+              style={{
+                display: 'flex', alignItems: 'center',
+                padding: `5px 14px 5px ${pl}px`,
+                cursor: 'pointer', fontSize: 12, color: 'var(--text0)',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               onClick={(e) => {
                 e.stopPropagation()
                 if (hasChildren) {
+                  // Клик на стрелку — только раскрыть/свернуть
+                  // Клик на имя — добавить в эту группу
                   const arrow = e.target.closest('[data-arrow]')
-                  if (arrow) { 
-                    toggleNode(node.id)
-                    return 
-                  }
+                  if (arrow) { setOpen((o) => ({ ...o, [node.id]: !o[node.id] })); return }
                 }
                 onSelect(node.id)
               }}
@@ -831,10 +620,7 @@ function GroupTree({ nodes, onSelect, depth }) {
               {hasChildren && (
                 <span
                   data-arrow="1"
-                  onClick={(e) => { 
-                    e.stopPropagation()
-                    toggleNode(node.id)
-                  }}
+                  onClick={(e) => { e.stopPropagation(); setOpen((o) => ({ ...o, [node.id]: !o[node.id] })) }}
                   style={{
                     fontSize: 8, marginRight: 5, display: 'inline-block',
                     transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
@@ -844,13 +630,9 @@ function GroupTree({ nodes, onSelect, depth }) {
                 >▼</span>
               )}
               {!hasChildren && <span style={{ width: 16, display: 'inline-block' }} />}
-              <span style={{ flex: 1 }}>{node.name}</span>
-              {hasChildren && hoverOpen[node.id] && !isOpen && (
-                <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>▶</span>
-              )}
+              <span>{node.name}</span>
             </div>
-            {/* Показываем подгруппы если открыто ИЛИ если наведение мышки */}
-            {hasChildren && shouldShowChildren && (
+            {hasChildren && isOpen && (
               <GroupTree nodes={node.children} onSelect={onSelect} depth={depth + 1} />
             )}
           </React.Fragment>
@@ -860,52 +642,13 @@ function GroupTree({ nodes, onSelect, depth }) {
   )
 }
 
-function Divider() {
-  return <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-}
-
-function CtxLabel({ children }) {
-  return (
-    <div style={{ padding: '3px 14px 2px', fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.4px' }}>
-      {children}
-    </div>
-  )
-}
-
-function SubMenu({ label, children }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <div
-        style={{ padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--text0)', display: 'flex', alignItems: 'center', background: open ? 'var(--bg2)' : 'transparent' }}
-      >
-        <span style={{ flex: 1 }}>{label}</span>
-        <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 8 }}>▶</span>
-      </div>
-      {open && (
-        <div style={{
-          position: 'absolute', left: '100%', top: 0, zIndex: 1100,
-          background: 'var(--bg1)', border: '1px solid var(--border2)',
-          borderRadius: 8, padding: '4px 0', minWidth: 160,
-          boxShadow: '0 4px 16px rgba(0,0,0,.14)',
-        }}>
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CtxAction({ children, onClick, danger, indent }) {
+function CtxAction({ children, onClick, danger }) {
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onClick() }}
-      className={`ctx-action${danger ? ' danger' : ''}${indent ? ' indent' : ''}`}
+      style={{ padding: '6px 14px', cursor: 'pointer', fontSize: 12, color: danger ? 'var(--red)' : 'var(--text0)' }}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
+      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
     >{children}</div>
   )
 }
@@ -1004,7 +747,9 @@ function GItem({ children, onClick, danger }) {
   return (
     <div
       onClick={onClick}
-      className={`g-item${danger ? ' danger' : ''}`}
+      style={{ padding: '7px 14px', fontSize: 12, cursor: 'pointer', color: danger ? 'var(--red)' : 'var(--text0)' }}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg2)'}
+      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
     >{children}</div>
   )
 }

@@ -1,0 +1,328 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+
+// Одна вкладка браузера внутри SSHM
+// Использует Electron <webview> — полноценный Chromium
+
+const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
+
+function nearestZoom(z) {
+  return ZOOM_STEPS.reduce((a, b) => Math.abs(b - z) < Math.abs(a - z) ? b : a)
+}
+
+export default function BrowserPane({ tab, browserZoom, browserNewTab, onUpdate }) {
+  // tab.browserTabs: [{ id, url, title, favicon, zoom }]
+  // tab.activeBrowserTab: id
+
+  const [bTabs, setBTabs]   = useState(tab.browserTabs || [{ id: 'b0', url: tab.url, title: tab.url, favicon: '', zoom: 1.0 }])
+  const [activeB, setActiveB] = useState(tab.activeBrowserTab || 'b0')
+  const [zoom, setZoom]     = useState(browserZoom || 1.0)
+  const [addressInput, setAddressInput] = useState(tab.url || '')
+  const [isLoading, setIsLoading] = useState(false)
+  const [canBack, setCanBack]   = useState(false)
+  const [canFwd,  setCanFwd]    = useState(false)
+
+  const webviewRef     = useRef(null)
+  const bTabCounter    = useRef(1)
+  const browserNewTabRef = useRef(browserNewTab)
+  const [fitActive, setFitActive] = useState(false)
+  useEffect(() => { browserNewTabRef.current = browserNewTab }, [browserNewTab])
+
+  const currentTab = bTabs.find((t) => t.id === activeB) || bTabs[0]
+
+  // ─── При смене активной вкладки — применяем её zoom ──────────────────────
+  useEffect(() => {
+    if (currentTab?.zoom) {
+      setZoom(currentTab.zoom)
+    }
+  }, [activeB, currentTab.id])
+
+  // Форсируем фокус на webview при смене вкладки
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try { webviewRef.current?.focus() } catch {}
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [activeB])
+
+  // ─── Подписка на события webview ────────────────────────────────────────
+  useEffect(() => {
+    const wv = webviewRef.current
+    if (!wv) return
+
+    const onLoad    = ()     => { setIsLoading(false); setCanBack(wv.canGoBack()); setCanFwd(wv.canGoForward()); setFitActive(false) }
+    const onStart   = ()     => setIsLoading(true)
+    const onUrl     = ()     => { setAddressInput(wv.getURL()); setCanBack(wv.canGoBack()); setCanFwd(wv.canGoForward()) }
+    const onTitle   = (e)    => setBTabs((ts) => ts.map((t) => t.id === activeB ? { ...t, title: e.title } : t))
+    const onFavicon = (e)    => { if (e.favicons?.[0]) setBTabs((ts) => ts.map((t) => t.id === activeB ? { ...t, favicon: e.favicons[0] } : t)) }
+
+    wv.addEventListener('did-finish-load',       onLoad)
+    wv.addEventListener('did-start-loading',     onStart)
+    wv.addEventListener('did-navigate',          onUrl)
+    wv.addEventListener('did-navigate-in-page',  onUrl)
+    wv.addEventListener('page-title-updated',    onTitle)
+    wv.addEventListener('page-favicon-updated',  onFavicon)
+
+    const onDomReady = () => {
+      try { wv.setZoomFactor(zoom) } catch {}
+      try { wv.focus() } catch {}
+      // Фикс скролла для страниц с картинками (Chrome блокирует overflow)
+      try {
+        wv.executeJavaScript(`
+          document.documentElement.style.overflow = 'auto';
+          document.body && (document.body.style.overflow = 'auto');
+        `)
+      } catch {}
+    }
+    wv.addEventListener('dom-ready', onDomReady)
+
+    return () => {
+      wv.removeEventListener('did-finish-load',      onLoad)
+      wv.removeEventListener('did-start-loading',    onStart)
+      wv.removeEventListener('did-navigate',         onUrl)
+      wv.removeEventListener('did-navigate-in-page', onUrl)
+      wv.removeEventListener('page-title-updated',   onTitle)
+      wv.removeEventListener('page-favicon-updated', onFavicon)
+      wv.removeEventListener('dom-ready',            onDomReady)
+    }
+  }, [activeB, zoom])
+
+
+  // ─── Открыть новый URL из внешнего события (панель туннелей) ───────────────
+  useEffect(() => {
+    const handler = (e) => {
+      const url = e.detail?.url
+      if (!url) return
+      const id = `b${++bTabCounter.current}`
+      setBTabs((ts) => [...ts, { id, url, title: url, favicon: '', zoom: 1.0 }])
+      setActiveB(id)
+      setAddressInput(url)
+    }
+    window.addEventListener('browser:open-url', handler)
+    return () => window.removeEventListener('browser:open-url', handler)
+  }, [])
+
+  // ─── Перехват popup через IPC от main process ────────────────────────────
+  useEffect(() => {
+    if (!window.api?.browser?.onPopup) return
+    const off = window.api.browser.onPopup((url) => {
+      if (!url || url === 'about:blank') return
+      if (browserNewTabRef.current) {
+        const id = `b${++bTabCounter.current}`
+        setBTabs((ts) => [...ts, { id, url, title: url, favicon: '', zoom: 1.0 }])
+        setActiveB(id)
+        setAddressInput(url)
+      } else {
+        // Навигируем текущую вкладку
+        setBTabs((ts) => ts.map((t) => t.id === activeB ? { ...t, url } : t))
+        setAddressInput(url)
+      }
+    })
+    return () => off?.()
+  }, [activeB])
+
+  // ─── Применить zoom + сохранить в текущей вкладке ──────────────────────
+  useEffect(() => {
+    try { webviewRef.current?.setZoomFactor(zoom) } catch {}
+    // Сохраняем zoom для текущей вкладки
+    setBTabs((ts) => ts.map((t) => t.id === activeB ? { ...t, zoom } : t))
+  }, [zoom, activeB])
+
+  // ─── Навигация ───────────────────────────────────────────────────────────
+  const navigate = useCallback((url) => {
+    const full = url.startsWith('http') ? url : `http://${url}`
+    setAddressInput(full)
+    setBTabs((ts) => ts.map((t) => t.id === activeB ? { ...t, url: full } : t))
+  }, [activeB])
+
+  const handleAddress = (e) => {
+    if (e.key === 'Enter') navigate(addressInput)
+  }
+
+  // ─── Вкладки браузера ────────────────────────────────────────────────────
+  const newBTab = (url = 'about:blank') => {
+    const id = `b${++bTabCounter.current}`
+    setBTabs((ts) => [...ts, { id, url, title: url, favicon: '', zoom: 1.0 }])
+    setActiveB(id)
+    setAddressInput(url)
+  }
+
+  const closeBTab = (id) => {
+    setBTabs((ts) => {
+      const next = ts.filter((t) => t.id !== id)
+      if (activeB === id && next.length > 0) {
+        setActiveB(next[next.length - 1].id)
+      }
+      return next
+    })
+  }
+
+  const zoomIn  = () => setZoom((z) => { const i = ZOOM_STEPS.indexOf(nearestZoom(z)); return ZOOM_STEPS[Math.min(i + 1, ZOOM_STEPS.length - 1)] })
+  const zoomOut = () => setZoom((z) => { const i = ZOOM_STEPS.indexOf(nearestZoom(z)); return ZOOM_STEPS[Math.max(i - 1, 0)] })
+  const zoomReset = () => setZoom(1.0)
+
+  // Вписать контент в окно — инжектируем CSS
+  const fitToWindow = () => {
+    const wv = webviewRef.current
+    if (!wv) return
+    const css = [
+      'html,body{overflow:auto!important;width:100%!important;height:100%!important;margin:0;padding:0}',
+      'img,video{max-width:100vw!important;max-height:100vh!important;width:auto!important;height:auto!important;display:block}',
+      'body>img:only-child,body>video:only-child{margin:auto}',
+    ].join('')
+    const js = '(function(){' +
+      'var e=document.getElementById("__sshm_fit__");' +
+      'if(e){e.remove();return "removed"}' +
+      'var s=document.createElement("style");' +
+      's.id="__sshm_fit__";' +
+      's.textContent=' + JSON.stringify(css) + ';' +
+      'document.head.appendChild(s);' +
+      'return "applied"' +
+    '})()'
+    wv.executeJavaScript(js).then((r) => setFitActive(r === 'applied')).catch(() => {})
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', background: '#fff' }}>
+
+      {/* Вкладки браузера */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        background: 'var(--bg2)', borderBottom: '1px solid var(--border)',
+        height: 34, flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none',
+      }}>
+        {bTabs.map((bt) => (
+          <div
+            key={bt.id}
+            onClick={() => { setActiveB(bt.id); setAddressInput(bt.url) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '0 10px', height: '100%', cursor: 'pointer',
+              background: bt.id === activeB ? 'var(--bg1)' : 'transparent',
+              borderRight: '1px solid var(--border)',
+              borderBottom: bt.id === activeB ? '2px solid var(--accent)' : 'none',
+              flexShrink: 0, maxWidth: 180,
+            }}
+          >
+            {bt.favicon
+              ? <img src={bt.favicon} style={{ width: 12, height: 12, flexShrink: 0 }} alt="" />
+              : <span style={{ fontSize: 10, flexShrink: 0 }}>🌐</span>
+            }
+            <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text0)', flex: 1 }}>
+              {bt.title || bt.url}
+            </span>
+            {bTabs.length > 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); closeBTab(bt.id) }}
+                style={{ fontSize: 12, color: 'var(--text3)', padding: '0 2px', flexShrink: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--red)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+              >×</button>
+            )}
+          </div>
+        ))}
+        {/* Новая вкладка */}
+        <button
+          onClick={() => newBTab()}
+          style={{ padding: '0 12px', height: '100%', color: 'var(--text3)', fontSize: 16, flexShrink: 0 }}
+          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text3)'}
+        >+</button>
+      </div>
+
+      {/* Тулбар навигации */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '5px 10px', background: 'var(--bg1)',
+        borderBottom: '1px solid var(--border)', flexShrink: 0,
+      }}>
+        {/* Назад / Вперёд / Обновить */}
+        <NavBtn onClick={() => webviewRef.current?.goBack()}    disabled={!canBack} title="Назад">←</NavBtn>
+        <NavBtn onClick={() => webviewRef.current?.goForward()} disabled={!canFwd}  title="Вперёд">→</NavBtn>
+        <NavBtn
+          onClick={() => isLoading ? webviewRef.current?.stop() : webviewRef.current?.reload()}
+          title={isLoading ? 'Стоп' : 'Обновить'}
+        >
+          {isLoading ? '✕' : '↺'}
+        </NavBtn>
+
+        {/* Адресная строка */}
+        <input
+          value={addressInput}
+          onChange={(e) => setAddressInput(e.target.value)}
+          onKeyDown={handleAddress}
+          onFocus={(e) => e.target.select()}
+          style={{
+            flex: 1, fontSize: 12, fontFamily: 'var(--font-mono)',
+            padding: '4px 10px', borderRadius: 6,
+          }}
+        />
+
+        {/* Загрузка индикатор */}
+        {isLoading && (
+          <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+        )}
+
+        {/* Зум */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          <NavBtn onClick={zoomOut} title="Уменьшить">−</NavBtn>
+          <button
+            onClick={zoomReset}
+            style={{ fontSize: 11, color: 'var(--text2)', padding: '3px 6px', borderRadius: 4, background: 'var(--bg2)', border: '1px solid var(--border2)', cursor: 'pointer', minWidth: 42, textAlign: 'center' }}
+          >{Math.round(zoom * 100)}%</button>
+          <NavBtn onClick={zoomIn} title="Увеличить">+</NavBtn>
+        </div>
+
+        {/* Вписать в окно */}
+        <NavBtn
+          onClick={fitToWindow}
+          title="Вписать в окно (toggle)"
+          style={{ background: fitActive ? 'rgba(37,99,235,0.15)' : undefined, color: fitActive ? 'var(--accent)' : undefined }}
+        >⊡</NavBtn>
+
+        {/* Открыть в системном браузере */}
+        <NavBtn onClick={() => window.api.ssh.openExternal({ hostname: addressInput })} title="Открыть в браузере">⎋</NavBtn>
+      </div>
+
+      {/* Webview — рендерим только активную вкладку */}
+      <div
+        style={{ flex: 1, overflow: 'hidden', minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        onClick={() => webviewRef.current?.focus()}
+      >
+        {bTabs.find((bt) => bt.id === activeB) && (
+          <webview
+            key={activeB}
+            ref={webviewRef}
+            src={currentTab.url}
+            style={{
+              flex: 1,
+              width: '100%',
+              minHeight: 0,
+            }}
+            allowpopups="true"
+          />
+        )}
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+      `}</style>
+    </div>
+  )
+}
+
+function NavBtn({ children, onClick, disabled, title }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        fontSize: 14, padding: '3px 8px', borderRadius: 5,
+        background: 'var(--bg2)', border: '1px solid var(--border2)',
+        color: disabled ? 'var(--text3)' : 'var(--text0)',
+        cursor: disabled ? 'default' : 'pointer',
+        flexShrink: 0,
+      }}
+    >{children}</button>
+  )
+}

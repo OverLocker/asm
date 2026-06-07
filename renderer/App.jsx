@@ -10,7 +10,6 @@ import ActiveTunnels      from './components/ActiveTunnels'
 import HotkeyHelp        from './components/HotkeyHelp'
 import SplitPane          from './components/SplitPane'
 import { DEFAULT_SETTINGS, applyUITheme } from './termSettings'
-import { useSettings } from './contexts/SettingsContext'
 
 const SettingsModal = React.lazy(() => import('./components/SettingsModal'))
 const TunnelRulesModal = React.lazy(() => import('./components/TunnelRulesModal'))
@@ -46,10 +45,6 @@ let tabCounter = 0
 const newId = () => `tab-${++tabCounter}`
 
 export default function App() {
-  // ─── Settings из контекста — изменение настроек не ре-рендерит компоненты
-  //     которые настройки не используют (Sidebar, TabBar и т.д.)
-  const { state: { termSettings }, actions: settingsActions } = useSettings()
-
   const [hosts, setHosts]               = useState([])
   const [customGroups, setCustomGroups] = useState([])
   const [notes, setNotes]               = useState({})
@@ -61,6 +56,7 @@ export default function App() {
   const [compact, setCompact]           = useState(false)    // ← краткий вывод
   const [x11, setX11]                   = useState(false)    // ← X11 Forwarding
   const [uiFullscreen, setUiFullscreen] = useState(false)    // ← полный экран (без TabBar/Sidebar)
+  const [termSettings, setTermSettings] = useState(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
   const [showHelp, setShowHelp]         = useState(false)
   const [monitorEnabled, setMonitorEnabled] = useState(false)
@@ -87,7 +83,7 @@ export default function App() {
     })
     window.api.notes.load().then(setNotes)
     window.api.settings.load().then((saved) => {
-      if (saved) settingsActions.setSettings({ ...DEFAULT_SETTINGS, ...saved })
+      if (saved) setTermSettings({ ...DEFAULT_SETTINGS, ...saved })
     })
     window.api.history.load().then((saved) => {
       if (Array.isArray(saved)) setHistory(saved)
@@ -173,14 +169,11 @@ export default function App() {
   }, [])
 
   const saveSettings = useCallback((next) => {
-    settingsActions.setSettings(next)
+    setTermSettings(next)
     window.api.settings.save(next)
     // Кешируем тему для мгновенного применения при следующем старте
-    try {
-      localStorage.setItem('asm-theme-cache', JSON.stringify({ uiTheme: next.uiTheme }))
-      localStorage.setItem('asm-settings-cache-full', JSON.stringify(next))
-    } catch {}
-  }, [settingsActions])
+    try { localStorage.setItem('asm-theme-cache', JSON.stringify({ uiTheme: next.uiTheme })) } catch {}
+  }, [])
 
   const saveTunnelRules = useCallback((rules) => {
     setTunnelRules(rules); window.api.tunnelRules.save(rules)
@@ -391,24 +384,22 @@ export default function App() {
   }, [closeTab])
 
   // Ref для актуальных значений без stale closure
-  const tunnelRulesRef      = React.useRef(tunnelRules)
-  const tabsRef             = React.useRef(tabs)
-  const activeTabRef        = React.useRef(activeTab)
-  const termSettingsRef     = React.useRef(termSettings)
-  const settingsActionsRef  = React.useRef(settingsActions)
-  React.useEffect(() => { hostSettingsRef.current     = hostSettings    }, [hostSettings])
-  React.useEffect(() => { tunnelRulesRef.current      = tunnelRules     }, [tunnelRules])
-  React.useEffect(() => { tabsRef.current             = tabs            }, [tabs])
-  React.useEffect(() => { activeTabRef.current        = activeTab       }, [activeTab])
-  React.useEffect(() => { termSettingsRef.current     = termSettings    }, [termSettings])
-  React.useEffect(() => { settingsActionsRef.current  = settingsActions }, [settingsActions])
+  const tunnelRulesRef   = React.useRef(tunnelRules)
+  const tabsRef          = React.useRef(tabs)
+  const activeTabRef     = React.useRef(activeTab)
+  React.useEffect(() => { hostSettingsRef.current = hostSettings }, [hostSettings])
+  React.useEffect(() => { tunnelRulesRef.current  = tunnelRules  }, [tunnelRules])
+  React.useEffect(() => { tabsRef.current         = tabs         }, [tabs])
+  React.useEffect(() => { activeTabRef.current    = activeTab    }, [activeTab])
 
   const updateTab = useCallback((id, patch) => {
     // Persist browserZoom to settings when changed from BrowserPane
     if (patch.browserZoom !== undefined) {
-      const next = { ...termSettingsRef.current, browserZoom: patch.browserZoom }
-      settingsActionsRef.current.setSettings(next)
-      window.api.settings.save(next)
+      setTermSettings((prev) => {
+        const next = { ...prev, browserZoom: patch.browserZoom }
+        window.api.settings.save(next)
+        return next
+      })
     }
     setTabs((t) => {
       const next = t.map((x) => x.id === id ? { ...x, ...patch } : x)
@@ -520,7 +511,7 @@ export default function App() {
 
   // ─── ОПТИМИЗИРОВАННЫЕ ПРОПСЫ ДЛЯ SIDEBAR (НОВОЕ) ─────────────────────────
   const sidebarProps = useMemo(() => ({
-    onEditHost: onEditHostCb,
+    onEditHost,
     hosts,
     customGroups,
     notes,
@@ -528,7 +519,7 @@ export default function App() {
     search,
     onSearch: setSearch,
     onOpen: openTab,
-    onOpenSplit: openSplit,
+    onOpenSplit,
     onSaveCustomGroups: saveCustomGroups,
     onSaveNote: saveNote,
     onToggleHostTunnel: toggleHostTunnel,
@@ -544,8 +535,8 @@ export default function App() {
     compact,
     onHide: onHideSidebarCb,
   }), [
-    onEditHostCb, hosts, customGroups, notes, hostSettings, search,
-    openTab, openSplit, saveCustomGroups, saveNote,
+    onEditHost, hosts, customGroups, notes, hostSettings, search,
+    openTab, onOpenSplit, saveCustomGroups, saveNote,
     toggleHostTunnel, toggleFavorite, favorites,
     onAddHostCb, onExportImportCb, openSftpCommander,
     saveHostSettings, termSettings.externalTerminal, sidebarWidth,
@@ -638,7 +629,7 @@ return (
               history={history}
               favorites={favorites}
               onOpen={openTab}
-              onOpenSettings={handleOpenSettings}
+              onOpenSettings={() => setShowSettings(true)}
               onToggleFavorite={toggleFavorite}
               historyLimit={termSettings.historyLimit ?? 5}
             />

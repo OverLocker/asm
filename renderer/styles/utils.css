@@ -1,0 +1,42 @@
+/*
+ * Hover utility classes — заменяют onMouseEnter/Leave
+ * !important нужен чтобы перебить inline style={{ color/background }}
+ */
+
+/* Фоны */
+.hov-bg:hover   { background: var(--bg2) !important; }
+.hov-bg3:hover  { background: var(--bg3) !important; }
+.hov-bg4:hover  { background: var(--bg4) !important; }
+.hov-transparent:hover { background: transparent !important; }
+
+/* Цвета текста */
+.hov-accent:hover { color: var(--accent) !important; }
+.hov-red:hover    { color: var(--red)    !important; }
+.hov-text0:hover  { color: var(--text0)  !important; }
+.hov-text1:hover  { color: var(--text1)  !important; }
+
+/* Комбо */
+.hov-bg-accent:hover  { background: var(--bg2) !important; color: var(--accent) !important; }
+.hov-bg-text0:hover   { background: var(--bg2) !important; color: var(--text0)  !important; }
+.hov-border-accent:hover { border-color: var(--accent) !important; color: var(--accent) !important; }
+
+/* Прочее */
+.hov-underline:hover { text-decoration: underline !important; }
+.hov-dim:hover       { opacity: 0.8 !important; }
+
+/* Переходы на самих элементах */
+.hov-bg,
+.hov-bg3,
+.hov-bg4,
+.hov-bg-accent,
+.hov-bg-text0     { transition: background 0.1s, color 0.1s; }
+
+.hov-accent,
+.hov-red,
+.hov-text0,
+.hov-text1,
+.hov-border-accent { transition: color 0.1s, border-color 0.1s; }
+
+/* Специальные случаи */
+.hov-close:hover   { background: rgba(220,38,38,0.85) !important; }
+.hov-bg-text0:hover { background: var(--bg3) !important; color: var(--text0) !important; }

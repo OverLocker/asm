@@ -2,11 +2,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles/global.css'
-import './styles/utils.css'
+import './styles/global.css'
 import { applyUITheme, DEFAULT_SETTINGS } from './termSettings'
-import { HostsProvider } from './contexts/HostsContext'
-import { UIProvider } from './contexts/UIContext'
-import { SettingsProvider } from './contexts/SettingsContext'
 
 // Применяем тему синхронно до первого рендера — убирает белый флеш
 ;(function () {
@@ -20,12 +17,6 @@ import { SettingsProvider } from './contexts/SettingsContext'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <SettingsProvider>
-      <HostsProvider>
-        <UIProvider>
-          <App />
-        </UIProvider>
-      </HostsProvider>
-    </SettingsProvider>
+    <App />
   </React.StrictMode>
 )
